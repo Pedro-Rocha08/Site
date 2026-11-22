@@ -343,7 +343,13 @@
         const p = idx.find(x => x.local && norm(x.title).includes(n) && !seen.has(x.id));
         if (p) { seen.add(p.id); items.push(p); }
       }
-      for (const p of idx) { if (items.length >= 16) break; if (p.local && !seen.has(p.id) && /Romantic|Classical|Baroque/.test(p.style)) { seen.add(p.id); items.push(p); } }
+      const composers = new Set(items.map(p => p.composer));
+      for (const p of idx) {
+        if (items.length >= 16) break;
+        if (p.local && !seen.has(p.id) && !composers.has(p.composer) && /^Piano$/i.test(p.instrument) && /Romantic|Classical|Baroque/.test(p.style)) {
+          seen.add(p.id); composers.add(p.composer); items.push(p);
+        }
+      }
       const localCount = idx.filter(p => p.local).length;
       state.bySource = { mutopia: { status: 'ok', total: localCount, items: items.map(mutopiaResult) } };
       ui.stats.textContent = idx.length.toLocaleString('pt-BR') + ' peças do Mutopia no índice · ' + localCount.toLocaleString('pt-BR') + ' prontas para praticar';
