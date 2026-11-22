@@ -1,8 +1,8 @@
 /* Aurora Keys — service worker: funciona offline depois da primeira visita */
-const VERSION = 'aurora-keys-v10';
+const VERSION = 'aurora-keys-v11';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
-  'js/midi-parser.js', 'js/synth.js', 'js/songs.js', 'js/storage.js', 'js/player.js', 'js/ambient.js', 'js/sheets.js', 'js/app.js', 'data/mutopia.json',
+  'js/midi-parser.js', 'js/synth.js', 'js/songs.js', 'js/storage.js', 'js/player.js', 'js/ambient.js', 'js/sheets.js', 'js/ar.js', 'js/vendor/three.min.js', 'js/app.js', 'data/mutopia.json',
   'assets/icon.svg', 'assets/icons/icon-192.png', 'assets/icons/icon-512.png',
   'assets/icons/maskable-512.png', 'assets/icons/apple-touch-icon.png'
 ];

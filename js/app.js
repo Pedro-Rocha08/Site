@@ -197,6 +197,8 @@
         player.play();
       }
       player.userNoteOn(midi, vel);
+    } else if (arLive()) {
+      arStage.noteOn(midi, vel);
     } else {
       ambient.noteOn(midi, vel);
     }
@@ -209,6 +211,7 @@
       if (sustain) sustained.push(v); else synth.release(v);
     }
     if (screen === 'player') player.userNoteOff(midi);
+    else if (arLive()) arStage.noteOff(midi);
     else ambient.noteOff(midi);
   }
 
@@ -543,6 +546,8 @@
     if (name !== 'player') browseScreen = name;
     $('#library').classList.toggle('active', name === 'library');
     $('#sheets').classList.toggle('active', name === 'sheets');
+    $('#ar').classList.toggle('active', name === 'ar');
+    if (name !== 'ar' && arStage && arStage.phase !== 'off') arStage.close();
     $('#player').classList.toggle('active', name === 'player');
     document.body.classList.toggle('in-player', name === 'player');
     if (name === 'player') ambient.releaseAll();
@@ -789,6 +794,8 @@
   }
 
   /* ================= Navegação Músicas / Partituras ================= */
+  const HASHES = { sheets: '#partituras', ar: '#palco3d' };
+  const fromHash = () => Object.keys(HASHES).find(k => HASHES[k] === location.hash) || 'library';
   function go(name, push) {
     if (name === screen) return;
     if (screen === 'player') { player.pause(); player.keyDown.clear(); }
@@ -796,7 +803,7 @@
     if (name === 'library') renderLibrary();
     if (name === 'sheets') Sheets.open();
     window.scrollTo(0, 0);
-    const hash = name === 'sheets' ? '#partituras' : '';
+    const hash = HASHES[name] || '';
     if (push !== false && location.hash !== hash) history.pushState(null, '', hash || location.pathname + location.search);
   }
   document.addEventListener('click', (e) => {
@@ -805,7 +812,7 @@
     e.preventDefault();
     go(b.dataset.go);
   });
-  window.addEventListener('popstate', () => go(location.hash === '#partituras' ? 'sheets' : 'library', false));
+  window.addEventListener('popstate', () => go(fromHash(), false));
 
   // MIDI vindo da busca de partituras: salva na biblioteca (uma vez só) e abre a preparação
   async function importBuffer(buf, meta) {
@@ -927,6 +934,7 @@
       const open = $('.modal.open');
       if (open) { closeModal('#' + open.id); return; }
       if (screen === 'player') goLibrary();
+      else if (arLive()) arStage.close();
       return;
     }
     if (anyModalOpen()) return;
@@ -1003,6 +1011,78 @@
   setKbCollapsed(!!settings.kbCollapsed);
   $('#kbToggle').addEventListener('click', () => setKbCollapsed(!settings.kbCollapsed));
 
+  /* ================= Palco 3D (câmera + realidade aumentada) ================= */
+  const arName = (m, oct) => Player.noteName(m, settings.noteNames, oct);
+  const arStage = new ARStage({
+    root: $('#arLive'),
+    noteName: arName,
+    toast,
+    songs: () => songs,
+    modelLabel: (cfg) => (ARStage.MODELS[cfg.model] || ARStage.MODELS.custom).name.split(' / ')[0],
+    onPress: (m, v) => { synth.init(); noteOn(m, v, 'touch'); },
+    onRelease: (m) => noteOff(m)
+  });
+  function arLive() { return screen === 'ar' && arStage.phase !== 'off'; }
+  (function setupAR() {
+    new ARStage.Preview($('#arPreview'));
+    const sel = $('#arModel'), keysSel = $('#arKeys'), lowSel = $('#arLow');
+    sel.innerHTML = ARStage.MODEL_GROUPS.map(([label, , , list]) =>
+      '<optgroup label="' + esc(label) + '">' + list.map(([id, name]) => '<option value="' + id + '">' + esc(name) + '</option>').join('') + '</optgroup>'
+    ).join('') + '<optgroup label="Outro"><option value="custom">Personalizado (escolho teclas e nota)</option></optgroup>';
+    const whites = [];
+    for (let m = 21; m <= 72; m++) if (![1, 3, 6, 8, 10].includes(m % 12)) whites.push(m);
+    lowSel.innerHTML = whites.map(m => '<option value="' + m + '">' + esc(arName(m, true)) + '</option>').join('');
+    const cfg = arStage.cfg;
+    sel.value = ARStage.MODELS[cfg.model] ? cfg.model : 'yamaha-p';
+    keysSel.value = String(cfg.keys);
+    lowSel.value = String(cfg.low);
+    const current = () => {
+      const id = sel.value;
+      if (id === 'custom') return { id, keys: +keysSel.value, low: +lowSel.value };
+      const m = ARStage.MODELS[id];
+      return { id, keys: m.keys, low: m.low };
+    };
+    const info = () => {
+      const c = current();
+      $('#arCustom').hidden = c.id !== 'custom';
+      const g = ARStage.buildGeom(c.keys, c.low);
+      $('#arModelInfo').innerHTML = '<b>' + c.keys + ' teclas</b> · ' + esc(arName(g.low, true)) + ' a ' + esc(arName(g.hi, true)) +
+        ' · ' + g.whites + ' brancas e ' + g.blacks.length + ' pretas · ' + (g.W / 10).toFixed(1).replace('.', ',') + ' cm de teclas';
+    };
+    [sel, keysSel, lowSel].forEach(el => el.addEventListener('change', info));
+    info();
+    $('#arSetup').addEventListener('submit', (e) => {
+      e.preventDefault();
+      synth.init();
+      const c = current();
+      arStage.setModel(c.id, c.keys, c.low);
+      arStage.open();
+      syncARButtons();
+    });
+    const syncARButtons = () => {
+      $('#arGrid').classList.toggle('on', !!arStage.cfg.grid);
+      $('#arNames').classList.toggle('on', !!arStage.cfg.names);
+      $('#arFov').value = Math.round(arStage.cfg.fovMul * 100);
+    };
+    $('#arClose').addEventListener('click', () => arStage.close());
+    $('#arFlip').addEventListener('click', () => arStage.flip());
+    $('#arManual').addEventListener('click', () => arStage.adjust());
+    $('#arRescan').addEventListener('click', () => arStage.rescan());
+    $('#arDone').addEventListener('click', () => arStage.done());
+    $('#arAdjust').addEventListener('click', () => { arStage.stopDemo(); arStage.releaseAll(); arStage.adjust(); });
+    $('#arRetry').addEventListener('click', () => arStage.open());
+    $('#arOctDown').addEventListener('click', () => arStage.shiftOctave(-1));
+    $('#arOctUp').addEventListener('click', () => arStage.shiftOctave(1));
+    $('#arLowest').addEventListener('click', () => {
+      if (!Midi.access || !Array.from(Midi.access.inputs.values()).length) toast('Conecte um teclado MIDI para usar este ajuste. Sem MIDI, use −8ª e +8ª.');
+      arStage.askLowest();
+    });
+    $('#arFov').addEventListener('input', (e) => arStage.setFov(e.target.value / 100));
+    $('#arGrid').addEventListener('click', (e) => e.currentTarget.classList.toggle('on', arStage.toggle('grid')));
+    $('#arNames').addEventListener('click', (e) => e.currentTarget.classList.toggle('on', arStage.toggle('names')));
+    $('#arDemo').addEventListener('click', (e) => { synth.init(); e.currentTarget.classList.toggle('on', arStage.toggleDemo()); });
+  })();
+
   /* ================= Laço principal ================= */
   const startOverlay = $('#startOverlay');
   const btnPlay = $('#btnPlay');
@@ -1059,7 +1139,7 @@
     });
     renderLibrary();
     requestAnimationFrame(loop);
-    if (location.hash === '#partituras') go('sheets', false);
+    if (fromHash() !== 'library') go(fromHash(), false);
   }
   boot();
 
@@ -1136,5 +1216,5 @@
   });
 
   // para depuração
-  window.AuroraKeys = { player, synth, songs, settings, importFiles, importBuffer, toast, noteOn, noteOff };
+  window.AuroraKeys = { player, synth, songs, settings, importFiles, importBuffer, toast, noteOn, noteOff, arStage };
 })();
