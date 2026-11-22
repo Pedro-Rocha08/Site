@@ -68,7 +68,15 @@
           if (attempt === 0) await new Promise(r => setTimeout(r, 1500));
         }
       }
-      if (!access) { this.status = 'error'; this.update(); midiRecover(false); return; }
+      if (!access) {
+        this.status = 'error';
+        // "Platform dependent initialization failed": o próprio Chrome não ligou o MIDI do Android
+        this.platform = /platform dependent|InvalidStateError/i.test(this.lastError);
+        this.update();
+        midiRecover(false);
+        return;
+      }
+      this.platform = false;
       let reloaded = false;
       try { reloaded = sessionStorage.getItem('aurora-midi-reloaded') === '1'; sessionStorage.removeItem('aurora-midi-reloaded'); } catch (e) { /* sem armazenamento */ }
       if (this.status === 'error' || reloaded) setTimeout(() => toast(this.inputs().length ? 'MIDI voltou: teclado pronto!' : 'MIDI liberado. Conecte o teclado.'), 0);
@@ -122,7 +130,7 @@
         lbl.textContent = inAppBrowser() ? 'Abra no Chrome para usar o MIDI' : 'MIDI indisponível neste navegador';
       } else if (this.status === 'error') {
         chip.classList.add('off');
-        lbl.textContent = 'MIDI travou: toque para reconectar';
+        lbl.textContent = this.platform ? 'O Chrome não ligou o MIDI: toque para ver' : 'MIDI travou: toque para reconectar';
       } else if (this.status === 'ask') {
         lbl.textContent = 'Toque para ativar o MIDI';
       } else if (this.status === 'denied') {
@@ -152,7 +160,7 @@
   // fromUser: o usuário pediu (toque no aviso). Automático: no máximo 2 vezes a cada 90 s.
   function midiRecover(fromUser) {
     const r = midiReloadBudget();
-    if (!fromUser && r.n >= 2) return false;
+    if (!fromUser && r.n >= (Midi.platform ? 1 : 2)) return false;
     if (!fromUser && !safeToReload()) { Midi.pendingReload = true; return false; }
     r.n++;
     try { sessionStorage.setItem(RELOAD_KEY, JSON.stringify(r)); } catch (e) { /* sem armazenamento */ }
@@ -161,6 +169,36 @@
     setTimeout(() => location.reload(), 700);
     return true;
   }
+
+  const isInstalled = () => window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
+  const onAndroid = () => /Android/i.test(navigator.userAgent || '') || (navigator.userAgentData && navigator.userAgentData.platform === 'Android') ||
+    (/Linux/.test(navigator.userAgent || '') && navigator.maxTouchPoints > 0); // "site para computador" no Android
+
+  // Passo a passo quando o Chrome não consegue ligar o serviço de MIDI do Android
+  function midiPlatformHelp() {
+    const steps = [
+      '<b>Feche outros apps de piano ou MIDI</b> (o app que funcionou pode estar segurando o teclado).',
+      'No Android: <b>Configurações → Apps → Chrome → Forçar parada</b>.',
+      'Tire e recoloque o cabo USB-OTG.',
+      isInstalled()
+        ? 'Abra o site numa <b>aba normal do Chrome</b> (botão abaixo) em vez do ícone instalado e toque em <b>Procurar teclado</b>.'
+        : 'Abra o Aurora Keys de novo e toque em <b>Procurar teclado</b>.'
+    ];
+    return 'O <b>Chrome deste aparelho</b> não conseguiu ligar o MIDI do Android (o erro vem do navegador, não da página). Faça nesta ordem:' +
+      '<ol class="set-steps">' + steps.map(x => '<li>' + x + '</li>').join('') + '</ol>' +
+      (isInstalled() ? '<button class="btn ghost sm" id="btnOpenTab" type="button">Abrir numa aba do Chrome</button>' : '') +
+      '<span class="set-sub">Se nem assim funcionar, o MIDI do Chrome está indisponível neste celular: apps da Play Store usam outro caminho até o teclado, que sites não podem usar. Você ainda pode tocar pela tela e pelo teclado do computador.</span>';
+  }
+  function openInChromeTab() {
+    const url = location.href.split('#')[0];
+    if (onAndroid()) {
+      // força o app do Chrome (fora do app instalado)
+      const u = new URL(url);
+      location.href = 'intent://' + u.host + u.pathname + u.search + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(url) + ';end';
+    } else window.open(url, '_blank', 'noopener');
+  }
+  document.addEventListener('click', (e) => { if (e.target.closest('#btnOpenTab')) openInChromeTab(); });
 
   // Navegador embutido de outro app (GitHub, WhatsApp, Instagram…): não tem Web MIDI
   function inAppBrowser() {
@@ -185,6 +223,7 @@
     const note = $('#midiNote');
     if (Midi.status === 'unsupported' && inAppBrowser()) note.innerHTML = 'Você abriu o site <b>dentro de outro app</b> (pelo link do GitHub, WhatsApp etc.), e esse navegador embutido não tem MIDI. Toque em ⋮ e escolha <b>Abrir no Chrome</b>, ou abra o app Aurora Keys instalado.';
     else if (Midi.status === 'unsupported') note.textContent = 'Seu navegador não suporta Web MIDI. Use Google Chrome, Microsoft Edge ou Opera no computador (ou Chrome no Android).';
+    else if (Midi.status === 'error' && Midi.platform) note.innerHTML = midiPlatformHelp();
     else if (Midi.status === 'error') note.innerHTML = 'O MIDI desta página travou (o navegador guarda a falha até a página ser recarregada). Toque em <b>Procurar teclado</b> para recarregar e conectar de novo. Se continuar: tire e recoloque o cabo USB-OTG e feche outros apps que estejam usando o teclado.';
     else if (Midi.status === 'ask') note.textContent = 'Toque em "Procurar teclado" e permita o acesso a dispositivos MIDI quando o navegador perguntar.';
     else if (Midi.status === 'denied') note.innerHTML = MIDI_UNBLOCK_HELP;
@@ -197,13 +236,13 @@
       const ua = navigator.userAgent || '';
       const browser = /SamsungBrowser\/[\d.]+/.exec(ua) || /EdgA?\/[\d.]+/.exec(ua) || /OPR\/[\d.]+/.exec(ua) || /Firefox\/[\d.]+/.exec(ua) || /Chrome\/[\d.]+/.exec(ua) || /Version\/[\d.]+.*Safari/.exec(ua);
       const os = /Android [\d.]+/.exec(ua) || /(iPhone|iPad).*?OS [\d_]+/.exec(ua) || /Windows NT [\d.]+|Mac OS X [\d_]+|Linux/.exec(ua);
-      const installed = window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
+      const installed = isInstalled();
       diag.textContent = 'Detalhes técnicos: ' + [
         inAppBrowser() ? 'navegador embutido' : '',
         'estado=' + Midi.status,
         Midi.lastError ? 'erro=' + Midi.lastError : '',
         'navegador=' + (browser ? browser[0] : '?'),
-        'sistema=' + (os ? os[0] : '?'),
+        'sistema=' + (os && !(os[0] === 'Linux' && onAndroid()) ? os[0] : onAndroid() ? 'Android (site para computador)' : '?'),
         installed ? 'app instalado' : 'no navegador',
         'webmidi=' + (navigator.requestMIDIAccess ? 'sim' : 'não'),
         window.isSecureContext ? 'https' : 'sem https'
@@ -940,6 +979,7 @@
   }
   $('#btnSettings').addEventListener('click', openSettings);
   $('#midiChip').addEventListener('click', async () => {
+    if (Midi.status === 'error' && Midi.platform) { openSettings(); return; }
     if (Midi.status === 'error') { midiRecover(true); return; }
     if (Midi.status !== 'ok' && Midi.status !== 'none' && Midi.status !== 'unsupported') await Midi.init(true);
     if (Midi.status !== 'ok') openSettings();
