@@ -35,6 +35,20 @@ No repositório: **Settings → Pages → Build and deployment → Deploy from a
 - Sem teclado MIDI? Use o teclado do computador (`Z`…`M` e `Q`…`U`, `[` `]` mudam a oitava) ou toque na tela.
 - Modo **Tocar livre** com notas subindo enquanto você toca.
 - **Partituras**: busca unificada em acervos livres, com download (veja abaixo).
+- **Palco 3D**: aponte a câmera para o teclado e veja as notas subirem em 3D das teclas de verdade (veja abaixo).
+
+## Palco 3D: realidade aumentada no seu teclado
+
+A aba **Palco 3D** (ou `#palco3d` no endereço) usa a câmera do celular ou do computador:
+
+1. Escolha o **modelo do teclado** (Yamaha, Casio, Roland, Kawai, Korg, Alesis, Nord, controladores MIDI…) ou informe o número de teclas e a nota mais grave.
+2. O app **escaneia** a imagem procurando o padrão das teclas pretas, encaixa o modelo e marca os 4 cantos. Se precisar, arraste os pontos (tem lupa para ajuste fino).
+3. Com os cantos, ele calcula a **posição da câmera em 3D** (homografia, com a distância focal estimada pelo próprio retângulo) e desenha a cena com Three.js por cima do vídeo.
+4. Cada nota tocada (MIDI, teclado do computador, toque na tela ou botão **Demo**) acende a tecla e solta uma **coluna de luz que sobe flutuando**, com o nome da nota e faíscas.
+
+Ajustes: *Perspectiva* (se as colunas não ficarem retas), *−8ª/+8ª* e *Tecla mais grave* (aperte a primeira tecla do seu teclado MIDI e o app descobre a extensão). A calibração fica salva no navegador. A câmera precisa de `https://` (GitHub Pages serve) e as imagens não saem do aparelho. O celular deve ficar parado num suporte: o app não segue a câmera se ela se mexer (é só tocar em *Ajustar* ou *Escanear* de novo).
+
+O Three.js (MIT) vem junto em `js/vendor/` e só é carregado quando a câmera abre.
 
 ## Partituras: uma busca, vários acervos
 

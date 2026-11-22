@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Music&text=%F0%9D%84%9E%F0%9D%84%A2%E2%99%AF&display=block" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=10">
+  <link rel="stylesheet" href="css/style.css?v=11">
 </head>
 <body>
   <div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
@@ -45,6 +45,7 @@
       <nav class="seg main-nav" aria-label="Seções">
         <button class="on" type="button" data-go="library">Músicas</button>
         <button type="button" data-go="sheets">Partituras</button>
+        <button type="button" data-go="ar">Palco 3D</button>
       </nav>
       <div class="top-actions">
         <button class="btn install" id="btnInstall" type="button" hidden>
@@ -122,6 +123,7 @@
       <nav class="seg main-nav" aria-label="Seções">
         <button type="button" data-go="library">Músicas</button>
         <button class="on" type="button" data-go="sheets">Partituras</button>
+        <button type="button" data-go="ar">Palco 3D</button>
       </nav>
       <div class="top-actions"></div>
     </header>
@@ -168,6 +170,139 @@
       <span>MIDIs de piano do <a href="https://www.mutopiaproject.org/" target="_blank" rel="noopener">Mutopia Project</a> incluídos no app conforme suas licenças (domínio público e Creative Commons, com crédito a cada obra).</span>
     </footer>
   </section>
+
+  <!-- ============ PALCO 3D (câmera + realidade aumentada) ============ -->
+  <section id="ar" class="screen">
+    <header class="topbar">
+      <a class="brand" href="#" data-go="library" aria-label="Aurora Keys">
+        <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+          <defs>
+            <linearGradient id="bm3" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#2ee6d6"/><stop offset=".55" stop-color="#8b7bff"/><stop offset="1" stop-color="#ff5fb1"/>
+            </linearGradient>
+          </defs>
+          <rect x="2" y="2" width="36" height="36" rx="11" fill="url(#bm3)"/>
+          <rect x="9" y="9" width="5" height="13" rx="2.5" fill="#fff" opacity=".95"/>
+          <rect x="17.5" y="6" width="5" height="18" rx="2.5" fill="#fff" opacity=".8"/>
+          <rect x="26" y="11" width="5" height="11" rx="2.5" fill="#fff" opacity=".65"/>
+          <rect x="7" y="26" width="26" height="7" rx="2" fill="#0b0b1e" opacity=".55"/>
+        </svg>
+        <span>Aurora<b>Keys</b></span>
+      </a>
+      <nav class="seg main-nav" aria-label="Seções">
+        <button type="button" data-go="library">Músicas</button>
+        <button type="button" data-go="sheets">Partituras</button>
+        <button class="on" type="button" data-go="ar">Palco 3D</button>
+      </nav>
+      <div class="top-actions"></div>
+    </header>
+
+    <div class="ar-hero">
+      <div class="ar-text">
+        <span class="eyebrow">Câmera · realidade aumentada · 3D</span>
+        <h1>Seu piano,<br><span class="grad">em outra dimensão.</span></h1>
+        <p>Aponte a câmera para o seu teclado. O app escaneia as teclas, encaixa o modelo que você escolher e, a cada nota tocada, uma coluna de luz nasce da tecla certa e sobe flutuando em 3D.</p>
+
+        <form class="ar-setup" id="arSetup">
+          <label class="ar-field">
+            <span>Modelo do seu teclado</span>
+            <select id="arModel"></select>
+          </label>
+          <div class="ar-custom" id="arCustom" hidden>
+            <label class="ar-field"><span>Teclas</span>
+              <select id="arKeys">
+                <option value="25">25</option><option value="32">32</option><option value="37">37</option>
+                <option value="49">49</option><option value="61">61</option><option value="73">73</option>
+                <option value="76">76</option><option value="88">88</option>
+              </select>
+            </label>
+            <label class="ar-field"><span>Tecla mais grave</span><select id="arLow"></select></label>
+          </div>
+          <div class="ar-model-info" id="arModelInfo"></div>
+          <button class="btn primary big" type="submit">
+            <svg viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><circle cx="12" cy="13" r="4"/></svg>
+            Abrir câmera e escanear
+          </button>
+        </form>
+
+        <ol class="ar-steps">
+          <li><b>Apoie o celular</b> num suporte ou estante, de frente e um pouco acima do teclado, para ver todas as teclas.</li>
+          <li><b>O app escaneia</b> o padrão das teclas pretas e marca os 4 cantos. Se precisar, arraste os pontos até as quinas.</li>
+          <li><b>Toque!</b> Pelo cabo MIDI (USB/OTG), pelo teclado do computador ou tocando nas teclas na própria tela.</li>
+        </ol>
+      </div>
+      <div class="ar-art" aria-hidden="true">
+        <canvas id="arPreview"></canvas>
+        <span class="ar-art-tag">AR</span>
+      </div>
+    </div>
+
+    <footer class="foot ar-foot">
+      <span>Funciona no Chrome, Edge e Safari, com o site em <b>https://</b>. As imagens da câmera são processadas só no seu aparelho e não saem dele.</span>
+      <span>Sem teclado MIDI? Toque nas teclas na tela ou use o botão <b>Demo</b> para ver uma música subir do seu teclado.</span>
+    </footer>
+  </section>
+
+  <div class="ar-live" id="arLive" hidden data-phase="off">
+    <video id="arVideo" playsinline muted autoplay></video>
+    <canvas id="arGL"></canvas>
+    <canvas id="arOverlay"></canvas>
+    <div class="ar-scanfx" aria-hidden="true"><i></i></div>
+    <button class="ar-handle" type="button" aria-label="Canto frontal esquerdo"><span>1</span></button>
+    <button class="ar-handle" type="button" aria-label="Canto frontal direito"><span>2</span></button>
+    <button class="ar-handle" type="button" aria-label="Canto do fundo à direita"><span>3</span></button>
+    <button class="ar-handle" type="button" aria-label="Canto do fundo à esquerda"><span>4</span></button>
+    <canvas class="ar-loupe" id="arLoupe" width="180" height="180"></canvas>
+
+    <div class="ar-hud ar-top">
+      <button class="icon-btn" id="arClose" type="button" title="Fechar câmera" aria-label="Fechar câmera">
+        <svg viewBox="0 0 24 24"><path d="M15 18 9 12l6-6"/></svg>
+      </button>
+      <div class="ar-status"><b id="arTitle"></b><span id="arHint"></span></div>
+      <button class="icon-btn" id="arFlip" type="button" title="Trocar câmera" aria-label="Trocar câmera">
+        <svg viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 12.5a3 3 0 0 1 5.2-2M15 13.5a3 3 0 0 1-5.2 2M14.5 8.5v2h-2M9.5 17.5v-2h2"/></svg>
+      </button>
+    </div>
+
+    <div class="ar-hud ar-bottom">
+      <div class="ar-bar" data-for="scan">
+        <button class="btn ghost" type="button" id="arManual">Marcar à mão</button>
+      </div>
+      <div class="ar-bar" data-for="adjust">
+        <button class="btn ghost" type="button" id="arRescan" title="Escanear de novo">
+          <svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16"/></svg>
+          <span>Escanear</span>
+        </button>
+        <label class="ar-fov" title="Ajuste se as colunas não ficarem retas para cima">
+          <span>Perspectiva</span>
+          <input type="range" id="arFov" min="55" max="170" step="1" value="100">
+        </label>
+        <div class="seg small ar-oct">
+          <button type="button" id="arOctDown" title="Uma oitava abaixo">−8ª</button>
+          <button type="button" id="arLowest" title="Aperte a tecla mais grave do seu teclado MIDI">Tecla mais grave</button>
+          <button type="button" id="arOctUp" title="Uma oitava acima">+8ª</button>
+        </div>
+        <button class="btn primary" type="button" id="arDone">
+          <svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg><span>Pronto</span>
+        </button>
+      </div>
+      <div class="ar-bar" data-for="live">
+        <button class="btn ghost" type="button" id="arAdjust">
+          <svg viewBox="0 0 24 24"><path d="M4 4h5M4 4v5M20 4h-5M20 4v5M4 20h5M4 20v-5M20 20h-5M20 20v-5"/></svg><span>Ajustar</span>
+        </button>
+        <div class="seg small">
+          <button type="button" id="arGrid">Grade</button>
+          <button type="button" id="arNames">Nomes</button>
+        </div>
+        <button class="btn primary" type="button" id="arDemo">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span>Demo</span>
+        </button>
+      </div>
+      <div class="ar-bar" data-for="error">
+        <button class="btn primary" type="button" id="arRetry">Tentar de novo</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ============ PLAYER ============ -->
   <section id="player" class="screen">
@@ -422,13 +557,14 @@
       t.appendChild(d); setTimeout(function () { d.remove(); }, 8000);
     });
   </script>
-  <script src="js/midi-parser.js?v=10"></script>
-  <script src="js/synth.js?v=10"></script>
-  <script src="js/songs.js?v=10"></script>
-  <script src="js/storage.js?v=10"></script>
-  <script src="js/player.js?v=10"></script>
-  <script src="js/ambient.js?v=10"></script>
-  <script src="js/sheets.js?v=10"></script>
-  <script src="js/app.js?v=10"></script>
+  <script src="js/midi-parser.js?v=11"></script>
+  <script src="js/synth.js?v=11"></script>
+  <script src="js/songs.js?v=11"></script>
+  <script src="js/storage.js?v=11"></script>
+  <script src="js/player.js?v=11"></script>
+  <script src="js/ambient.js?v=11"></script>
+  <script src="js/sheets.js?v=11"></script>
+  <script src="js/ar.js?v=11"></script>
+  <script src="js/app.js?v=11"></script>
 </body>
 </html>
