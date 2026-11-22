@@ -68,22 +68,15 @@
           if (attempt === 0) await new Promise(r => setTimeout(r, 1500));
         }
       }
-      if (!access) { this.status = 'error'; this.update(); this.scheduleRetry(); return; }
-      this.retries = 0;
-      if (this.status === 'error') setTimeout(() => toast(this.inputs().length ? 'MIDI voltou: teclado pronto!' : 'MIDI liberado. Conecte o teclado.'), 0);
+      if (!access) { this.status = 'error'; this.update(); midiRecover(false); return; }
+      let reloaded = false;
+      try { reloaded = sessionStorage.getItem('aurora-midi-reloaded') === '1'; sessionStorage.removeItem('aurora-midi-reloaded'); } catch (e) { /* sem armazenamento */ }
+      if (this.status === 'error' || reloaded) setTimeout(() => toast(this.inputs().length ? 'MIDI voltou: teclado pronto!' : 'MIDI liberado. Conecte o teclado.'), 0);
       // O acesso foi concedido: daqui em diante, um problema do app não pode virar "MIDI indisponível"
       this.access = access;
       this.lastError = '';
       this.access.onstatechange = () => this.bind(true);
       this.bind(false);
-    },
-    // O sistema recusou o MIDI: tenta de novo sozinho mais algumas vezes (o teclado pode estar acordando)
-    retries: 0,
-    scheduleRetry() {
-      clearTimeout(this.retryTimer);
-      if (this.retries >= 6) return;
-      this.retries++;
-      this.retryTimer = setTimeout(() => { if (this.status === 'error') this.init(true); }, 4000);
     },
     inputs() { return this.access ? Array.from(this.access.inputs.values()) : []; },
     outputs() { return this.access ? Array.from(this.access.outputs.values()) : []; },
@@ -129,7 +122,7 @@
         lbl.textContent = inAppBrowser() ? 'Abra no Chrome para usar o MIDI' : 'MIDI indisponível neste navegador';
       } else if (this.status === 'error') {
         chip.classList.add('off');
-        lbl.textContent = 'MIDI indisponível neste aparelho';
+        lbl.textContent = 'MIDI travou: toque para reconectar';
       } else if (this.status === 'ask') {
         lbl.textContent = 'Toque para ativar o MIDI';
       } else if (this.status === 'denied') {
@@ -139,6 +132,35 @@
       fillMidiSelects();
     }
   };
+
+  /* O Chrome guarda o resultado do MIDI por página: depois de uma falha (ex.: o app ficou aberto
+   * em segundo plano enquanto o cabo era trocado), qualquer novo pedido na MESMA página falha igual,
+   * mesmo com o teclado funcionando em outros apps. A saída é recarregar a página. */
+  const RELOAD_KEY = 'aurora-midi-reload';
+  function midiReloadBudget() {
+    let r = {};
+    try { r = JSON.parse(sessionStorage.getItem(RELOAD_KEY) || '{}') || {}; } catch (e) { r = {}; }
+    const now = Date.now();
+    if (!r.t || now - r.t > 90000) r = { t: now, n: 0 };
+    return r;
+  }
+  function safeToReload() {
+    if (screen === 'player') return false;
+    if (screen === 'ar' && arStage && arStage.phase !== 'off') return false;
+    return !anyModalOpen() || $('#settingsModal').classList.contains('open');
+  }
+  // fromUser: o usuário pediu (toque no aviso). Automático: no máximo 2 vezes a cada 90 s.
+  function midiRecover(fromUser) {
+    const r = midiReloadBudget();
+    if (!fromUser && r.n >= 2) return false;
+    if (!fromUser && !safeToReload()) { Midi.pendingReload = true; return false; }
+    r.n++;
+    try { sessionStorage.setItem(RELOAD_KEY, JSON.stringify(r)); } catch (e) { /* sem armazenamento */ }
+    try { sessionStorage.setItem('aurora-midi-reloaded', '1'); } catch (e) { /* idem */ }
+    toast('Reconectando o MIDI…');
+    setTimeout(() => location.reload(), 700);
+    return true;
+  }
 
   // Navegador embutido de outro app (GitHub, WhatsApp, Instagram…): não tem Web MIDI
   function inAppBrowser() {
@@ -163,7 +185,7 @@
     const note = $('#midiNote');
     if (Midi.status === 'unsupported' && inAppBrowser()) note.innerHTML = 'Você abriu o site <b>dentro de outro app</b> (pelo link do GitHub, WhatsApp etc.), e esse navegador embutido não tem MIDI. Toque em ⋮ e escolha <b>Abrir no Chrome</b>, ou abra o app Aurora Keys instalado.';
     else if (Midi.status === 'unsupported') note.textContent = 'Seu navegador não suporta Web MIDI. Use Google Chrome, Microsoft Edge ou Opera no computador (ou Chrome no Android).';
-    else if (Midi.status === 'error') note.innerHTML = 'O Android não liberou o MIDI agora. O app continua tentando sozinho. Se não voltar: 1) tire e recoloque o cabo USB-OTG; 2) <b>feche o Chrome de vez</b> (na tela de apps recentes, deslize para fechar) e abra de novo; 3) toque em "Procurar teclado".';
+    else if (Midi.status === 'error') note.innerHTML = 'O MIDI desta página travou (o navegador guarda a falha até a página ser recarregada). Toque em <b>Procurar teclado</b> para recarregar e conectar de novo. Se continuar: tire e recoloque o cabo USB-OTG e feche outros apps que estejam usando o teclado.';
     else if (Midi.status === 'ask') note.textContent = 'Toque em "Procurar teclado" e permita o acesso a dispositivos MIDI quando o navegador perguntar.';
     else if (Midi.status === 'denied') note.innerHTML = MIDI_UNBLOCK_HELP;
     else if (!ins.length) note.textContent = 'Conecte o teclado via USB (ou adaptador MIDI-USB). Ele aparece aqui automaticamente.';
@@ -918,10 +940,12 @@
   }
   $('#btnSettings').addEventListener('click', openSettings);
   $('#midiChip').addEventListener('click', async () => {
+    if (Midi.status === 'error') { midiRecover(true); return; }
     if (Midi.status !== 'ok' && Midi.status !== 'none' && Midi.status !== 'unsupported') await Midi.init(true);
     if (Midi.status !== 'ok') openSettings();
   });
   $('#btnMidiRetry').addEventListener('click', async () => {
+    if (Midi.status === 'error') { midiRecover(true); return; }
     await Midi.init(true);
     if (Midi.status === 'ok') toast('Teclado MIDI liberado!');
     else if (Midi.status === 'none') toast('MIDI liberado. Conecte o teclado.');
@@ -1155,7 +1179,9 @@
   async function boot() {
     BUILTIN_SONGS.forEach(s => songs.push(s));
     renderLibrary();
-    Midi.init();
+    // pede o MIDI com a página visível (o app instalado pode abrir em segundo plano)
+    if (document.hidden) document.addEventListener('visibilitychange', function once() { if (!document.hidden) { document.removeEventListener('visibilitychange', once); Midi.init(); } });
+    else Midi.init();
     const recs = await Store.allSongs();
     recs.sort((a, b) => a.added - b.added).forEach(rec => {
       try { songs.push(fromRecord(rec, parseMidi(rec.data))); } catch (e) { console.warn('Falha ao carregar', rec.title, e); }
@@ -1237,12 +1263,10 @@
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && screen === 'player') player.pause();
     // voltou para o app (ex.: depois de reconectar o cabo): tenta o MIDI de novo
-    if (!document.hidden && Midi.status === 'error') { Midi.retries = 0; Midi.init(true); }
+    if (!document.hidden && Midi.status === 'error') midiRecover(false);
   });
-  // com o MIDI recusado, qualquer toque na tela é uma nova chance (o Chrome gosta de pedidos com toque)
-  document.addEventListener('pointerdown', () => {
-    if (Midi.status === 'error' && !Midi.busy && Date.now() - (Midi.lastTap || 0) > 3000) { Midi.lastTap = Date.now(); Midi.init(true); }
-  }, true);
+  // falhou no meio de uma música ou com a câmera aberta: recarrega quando sair dela
+  setInterval(() => { if (Midi.status === 'error' && Midi.pendingReload && safeToReload()) { Midi.pendingReload = false; midiRecover(false); } }, 1500);
 
   // para depuração
   window.AuroraKeys = { player, synth, songs, settings, importFiles, importBuffer, toast, noteOn, noteOff, arStage };
