@@ -137,7 +137,7 @@
       }
       player.userNoteOn(midi, vel);
     } else {
-      hero.userNoteOn(midi, vel);
+      ambient.noteOn(midi, vel);
     }
   }
 
@@ -148,7 +148,7 @@
       if (sustain) sustained.push(v); else synth.release(v);
     }
     if (screen === 'player') player.userNoteOff(midi);
-    else hero.userNoteOff(midi);
+    else ambient.noteOff(midi);
   }
 
   /* ================= Teclado do computador ================= */
@@ -473,6 +473,9 @@
     $('#library').classList.toggle('active', name === 'library');
     $('#player').classList.toggle('active', name === 'player');
     document.body.classList.toggle('in-player', name === 'player');
+    if (name === 'player') ambient.releaseAll();
+    ambient.active = name === 'library';
+    ambient.dirty = true;
     if (name === 'player') {
       requestAnimationFrame(() => player.resize());
       const hint = $('#rotateHint');
@@ -819,6 +822,27 @@
   hero.load(BUILTIN_SONGS.find(s => s.id === 'builtin-ode'), { mode: 'listen', hands: { left: true, right: true } });
   hero.play();
 
+  /* ================= Teclado do rodapé ================= */
+  const ambient = new AmbientKeys({
+    fx: $('#ambientFx'),
+    kb: $('#ambientKb'),
+    onPress: (m, v) => { synth.init(); noteOn(m, v, 'touch'); },
+    onRelease: (m) => noteOff(m),
+    labels: () => settings.keyLabels !== 'none'
+  });
+  function setKbCollapsed(c) {
+    settings.kbCollapsed = c;
+    saveSettings();
+    ambient.collapsed = c;
+    ambient.dirty = true;
+    $('#kbDock').classList.toggle('collapsed', c);
+    document.body.classList.toggle('kb-open', !c);
+    $('#kbToggle').setAttribute('aria-expanded', String(!c));
+    $('#kbToggle span').textContent = c ? 'Mostrar teclado' : 'Esconder teclado';
+  }
+  setKbCollapsed(!!settings.kbCollapsed);
+  $('#kbToggle').addEventListener('click', () => setKbCollapsed(!settings.kbCollapsed));
+
   /* ================= Laço principal ================= */
   const startOverlay = $('#startOverlay');
   const btnPlay = $('#btnPlay');
@@ -838,6 +862,7 @@
       }
     } else {
       hero.frame(now);
+      ambient.frame(now);
       player.lastFrame = 0;
     }
     requestAnimationFrame(loop);

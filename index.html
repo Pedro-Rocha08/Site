@@ -21,6 +21,7 @@
 <body>
   <div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
   <div class="grain" aria-hidden="true"></div>
+  <canvas class="ambient-fx" id="ambientFx" aria-hidden="true"></canvas>
 
   <!-- ============ BIBLIOTECA ============ -->
   <section id="library" class="screen active">
@@ -91,7 +92,7 @@
 
     <footer class="foot">
       <span>Dica: arraste arquivos <b>.mid</b> para qualquer lugar da página.</span>
-      <span>Sem teclado MIDI? Use o teclado do computador (Z–M e Q–U) ou toque na tela.</span>
+      <span>Toque no seu teclado MIDI e veja as notas subirem pela página. Sem teclado MIDI? Use Z–M e Q–U ou o piano abaixo.</span>
     </footer>
   </section>
 
@@ -313,6 +314,13 @@
     </div>
   </div>
 
+  <div class="kb-dock" id="kbDock">
+    <button class="kb-toggle" id="kbToggle" type="button" aria-expanded="true" aria-controls="ambientKb">
+      <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg><span>Esconder teclado</span>
+    </button>
+    <canvas id="ambientKb" aria-label="Teclado de piano: toque para tocar"></canvas>
+  </div>
+
   <div class="toasts" id="toasts"></div>
   <input type="file" id="fileInput" accept=".mid,.midi,.kar,audio/midi,audio/x-midi" multiple hidden>
 
@@ -321,6 +329,7 @@
   <script src="js/songs.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/player.js"></script>
+  <script src="js/ambient.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

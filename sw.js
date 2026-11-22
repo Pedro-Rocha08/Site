@@ -1,8 +1,8 @@
 /* Aurora Keys — service worker: funciona offline depois da primeira visita */
-const VERSION = 'aurora-keys-v1';
+const VERSION = 'aurora-keys-v2';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
-  'js/midi-parser.js', 'js/synth.js', 'js/songs.js', 'js/storage.js', 'js/player.js', 'js/app.js',
+  'js/midi-parser.js', 'js/synth.js', 'js/songs.js', 'js/storage.js', 'js/player.js', 'js/ambient.js', 'js/app.js',
   'assets/icon.svg', 'assets/icons/icon-192.png', 'assets/icons/icon-512.png',
   'assets/icons/maskable-512.png', 'assets/icons/apple-touch-icon.png'
 ];
