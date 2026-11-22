@@ -1,5 +1,5 @@
 /* Aurora Keys — service worker: funciona offline depois da primeira visita */
-const VERSION = 'aurora-keys-v4';
+const VERSION = 'aurora-keys-v5';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/midi-parser.js', 'js/synth.js', 'js/songs.js', 'js/storage.js', 'js/player.js', 'js/ambient.js', 'js/sheets.js', 'js/app.js', 'data/mutopia.json',
@@ -10,7 +10,7 @@ const SHELL = [
 self.addEventListener('install', (e) => {
   // Cada arquivo separado: se um faltar, o resto continua funcionando (addAll falharia inteiro)
   e.waitUntil(caches.open(VERSION)
-    .then(c => Promise.all(SHELL.map(u => c.add(u).catch(() => console.warn('SW: não consegui guardar', u)))))
+    .then(c => Promise.all(SHELL.map(u => c.add(new Request(u, { cache: 'reload' })).catch(() => console.warn('SW: não consegui guardar', u)))))
     .then(() => self.skipWaiting()));
 });
 
@@ -21,6 +21,13 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+function fetchFresh(req, url) {
+  if (url.origin !== location.origin) return fetch(req);
+  // navegação não aceita RequestInit; refaz pela URL
+  if (req.mode === 'navigate') return fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' });
+  return fetch(req, { cache: 'no-cache' });
+}
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
@@ -30,7 +37,8 @@ self.addEventListener('fetch', (e) => {
 
   // Rede primeiro (para receber atualizações), cache se estiver offline
   e.respondWith(
-    fetch(req).then(res => {
+    // 'no-cache': sempre confere com o servidor (evita misturar página nova com script antigo)
+    fetchFresh(req, url).then(res => {
       if (res && (res.ok || res.type === 'opaque')) {
         const copy = res.clone();
         caches.open(VERSION).then(c => c.put(req, copy));
