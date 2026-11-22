@@ -51,29 +51,41 @@
         if (perm === 'denied') { this.status = 'denied'; this.update(); return; }
         if (perm === 'prompt') { this.status = 'ask'; this.update(); return; }
       }
-      try {
-        this.access = await navigator.requestMIDIAccess({ sysex: false });
-        this.access.onstatechange = () => this.bind(true);
-        this.bind(false);
-      } catch (e) {
-        console.warn('MIDI:', e);
-        this.lastError = ((e && e.name) || 'Erro') + (e && e.message ? ': ' + e.message : '');
-        this.status = (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) ? 'denied' : 'error';
-        this.update();
+      let access = null;
+      // Pede o acesso; se o sistema falhar (ex.: outro app acabou de soltar o teclado), tenta de novo uma vez
+      for (let attempt = 0; attempt < 2 && !access; attempt++) {
+        try {
+          access = await navigator.requestMIDIAccess({ sysex: false });
+        } catch (e) {
+          console.warn('MIDI:', e);
+          this.lastError = ((e && e.name) || 'Erro') + (e && e.message ? ': ' + e.message : '');
+          if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) { this.status = 'denied'; this.update(); return; }
+          if (attempt === 0) await new Promise(r => setTimeout(r, 1500));
+        }
       }
+      if (!access) { this.status = 'error'; this.update(); return; }
+      // O acesso foi concedido: daqui em diante, um problema do app não pode virar "MIDI indisponível"
+      this.access = access;
+      this.lastError = '';
+      this.access.onstatechange = () => this.bind(true);
+      this.bind(false);
     },
     inputs() { return this.access ? Array.from(this.access.inputs.values()) : []; },
     outputs() { return this.access ? Array.from(this.access.outputs.values()) : []; },
     bind(notify) {
       const ins = this.inputs();
       ins.forEach(inp => {
-        inp.onmidimessage = (e) => {
-          if (settings.midiIn !== 'all' && settings.midiIn !== inp.id) return;
-          onMidiMessage(e.data);
-        };
+        try {
+          inp.onmidimessage = (e) => {
+            if (settings.midiIn !== 'all' && settings.midiIn !== inp.id) return;
+            onMidiMessage(e.data);
+          };
+          // alguns aparelhos só entregam as notas depois de abrir a porta explicitamente
+          if (inp.connection !== 'open' && typeof inp.open === 'function') inp.open().catch(err => { this.lastError = 'porta: ' + ((err && err.name) || err); });
+        } catch (err) { console.warn('MIDI porta', inp && inp.name, err); this.lastError = 'porta: ' + ((err && err.message) || err); }
         if (!this.known.has(inp.id)) {
           this.known.add(inp.id);
-          if (notify) toast('Teclado conectado: ' + inp.name);
+          if (notify) toast('Teclado conectado: ' + (inp.name || 'MIDI'));
         }
       });
       this.known.forEach(id => {
@@ -94,7 +106,7 @@
       if (this.status === 'ok') {
         chip.classList.add('ok');
         const active = settings.midiIn === 'all' ? ins[0] : ins.find(i => i.id === settings.midiIn);
-        lbl.textContent = (active ? active.name : ins[0].name) + (ins.length > 1 && settings.midiIn === 'all' ? ' +' + (ins.length - 1) : '');
+        lbl.textContent = ((active ? active.name : ins[0].name) || 'Teclado MIDI') + (ins.length > 1 && settings.midiIn === 'all' ? ' +' + (ins.length - 1) : '');
       } else if (this.status === 'none') {
         lbl.textContent = 'Conecte seu teclado MIDI';
       } else if (this.status === 'unsupported') {
@@ -123,9 +135,9 @@
   function fillMidiSelects() {
     const inSel = $('#setMidiIn'), outSel = $('#setMidiOut');
     const ins = Midi.inputs(), outs = Midi.outputs();
-    inSel.innerHTML = '<option value="all">Todos os dispositivos</option>' + ins.map(i => '<option value="' + esc(i.id) + '">' + esc(i.name) + '</option>').join('');
+    inSel.innerHTML = '<option value="all">Todos os dispositivos</option>' + ins.map(i => '<option value="' + esc(i.id) + '">' + esc(i.name || 'Teclado MIDI') + '</option>').join('');
     inSel.value = ins.find(i => i.id === settings.midiIn) ? settings.midiIn : 'all';
-    outSel.innerHTML = '<option value="">Nenhuma (usar o som do app)</option>' + outs.map(o => '<option value="' + esc(o.id) + '">' + esc(o.name) + '</option>').join('');
+    outSel.innerHTML = '<option value="">Nenhuma (usar o som do app)</option>' + outs.map(o => '<option value="' + esc(o.id) + '">' + esc(o.name || 'Saída MIDI') + '</option>').join('');
     outSel.value = outs.find(o => o.id === settings.midiOut) ? settings.midiOut : '';
     const note = $('#midiNote');
     if (Midi.status === 'unsupported') note.textContent = 'Seu navegador não suporta Web MIDI. Use Google Chrome, Microsoft Edge ou Opera no computador (ou Chrome no Android).';
@@ -136,8 +148,9 @@
     else note.textContent = ins.length + ' dispositivo(s) de entrada encontrado(s).';
     // Detalhes técnicos (para diagnosticar pelo print da tela)
     const diag = $('#midiDiag');
+    if (!diag) return; // página antiga em cache
     if (Midi.status === 'error' || Midi.status === 'denied' || Midi.status === 'unsupported') {
-      const ua = navigator.userAgent;
+      const ua = navigator.userAgent || '';
       const browser = /SamsungBrowser\/[\d.]+/.exec(ua) || /EdgA?\/[\d.]+/.exec(ua) || /OPR\/[\d.]+/.exec(ua) || /Firefox\/[\d.]+/.exec(ua) || /Chrome\/[\d.]+/.exec(ua) || /Version\/[\d.]+.*Safari/.exec(ua);
       const os = /Android [\d.]+/.exec(ua) || /(iPhone|iPad).*?OS [\d_]+/.exec(ua) || /Windows NT [\d.]+|Mac OS X [\d_]+|Linux/.exec(ua);
       const installed = window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
