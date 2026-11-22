@@ -46,6 +46,11 @@
     // o Chrome no Android bloqueia pedidos feitos sem interação, e depois não pergunta mais.
     async init(fromUser) {
       if (!navigator.requestMIDIAccess) { this.status = 'unsupported'; this.update(); return; }
+      if (this.busy) return this.busy;
+      this.busy = this._init(fromUser).finally(() => { this.busy = null; });
+      return this.busy;
+    },
+    async _init(fromUser) {
       if (!fromUser) {
         const perm = await midiPermission();
         if (perm === 'denied') { this.status = 'denied'; this.update(); return; }
@@ -63,12 +68,22 @@
           if (attempt === 0) await new Promise(r => setTimeout(r, 1500));
         }
       }
-      if (!access) { this.status = 'error'; this.update(); return; }
+      if (!access) { this.status = 'error'; this.update(); this.scheduleRetry(); return; }
+      this.retries = 0;
+      if (this.status === 'error') setTimeout(() => toast(this.inputs().length ? 'MIDI voltou: teclado pronto!' : 'MIDI liberado. Conecte o teclado.'), 0);
       // O acesso foi concedido: daqui em diante, um problema do app não pode virar "MIDI indisponível"
       this.access = access;
       this.lastError = '';
       this.access.onstatechange = () => this.bind(true);
       this.bind(false);
+    },
+    // O sistema recusou o MIDI: tenta de novo sozinho mais algumas vezes (o teclado pode estar acordando)
+    retries: 0,
+    scheduleRetry() {
+      clearTimeout(this.retryTimer);
+      if (this.retries >= 6) return;
+      this.retries++;
+      this.retryTimer = setTimeout(() => { if (this.status === 'error') this.init(true); }, 4000);
     },
     inputs() { return this.access ? Array.from(this.access.inputs.values()) : []; },
     outputs() { return this.access ? Array.from(this.access.outputs.values()) : []; },
@@ -111,7 +126,7 @@
         lbl.textContent = 'Conecte seu teclado MIDI';
       } else if (this.status === 'unsupported') {
         chip.classList.add('off');
-        lbl.textContent = 'MIDI indisponível neste navegador';
+        lbl.textContent = inAppBrowser() ? 'Abra no Chrome para usar o MIDI' : 'MIDI indisponível neste navegador';
       } else if (this.status === 'error') {
         chip.classList.add('off');
         lbl.textContent = 'MIDI indisponível neste aparelho';
@@ -124,6 +139,12 @@
       fillMidiSelects();
     }
   };
+
+  // Navegador embutido de outro app (GitHub, WhatsApp, Instagram…): não tem Web MIDI
+  function inAppBrowser() {
+    const ua = navigator.userAgent || '';
+    return /; wv\)|FBAN|FBAV|Instagram|WhatsApp|GitHub|Line\/|Twitter|LinkedInApp|Telegram/i.test(ua);
+  }
 
   async function midiPermission() {
     try {
@@ -140,8 +161,9 @@
     outSel.innerHTML = '<option value="">Nenhuma (usar o som do app)</option>' + outs.map(o => '<option value="' + esc(o.id) + '">' + esc(o.name || 'Saída MIDI') + '</option>').join('');
     outSel.value = outs.find(o => o.id === settings.midiOut) ? settings.midiOut : '';
     const note = $('#midiNote');
-    if (Midi.status === 'unsupported') note.textContent = 'Seu navegador não suporta Web MIDI. Use Google Chrome, Microsoft Edge ou Opera no computador (ou Chrome no Android).';
-    else if (Midi.status === 'error') note.textContent = 'O sistema não liberou o MIDI agora. Reconecte o cabo USB-OTG e toque em "Procurar teclado".';
+    if (Midi.status === 'unsupported' && inAppBrowser()) note.innerHTML = 'Você abriu o site <b>dentro de outro app</b> (pelo link do GitHub, WhatsApp etc.), e esse navegador embutido não tem MIDI. Toque em ⋮ e escolha <b>Abrir no Chrome</b>, ou abra o app Aurora Keys instalado.';
+    else if (Midi.status === 'unsupported') note.textContent = 'Seu navegador não suporta Web MIDI. Use Google Chrome, Microsoft Edge ou Opera no computador (ou Chrome no Android).';
+    else if (Midi.status === 'error') note.innerHTML = 'O Android não liberou o MIDI agora. O app continua tentando sozinho. Se não voltar: 1) tire e recoloque o cabo USB-OTG; 2) <b>feche o Chrome de vez</b> (na tela de apps recentes, deslize para fechar) e abra de novo; 3) toque em "Procurar teclado".';
     else if (Midi.status === 'ask') note.textContent = 'Toque em "Procurar teclado" e permita o acesso a dispositivos MIDI quando o navegador perguntar.';
     else if (Midi.status === 'denied') note.innerHTML = MIDI_UNBLOCK_HELP;
     else if (!ins.length) note.textContent = 'Conecte o teclado via USB (ou adaptador MIDI-USB). Ele aparece aqui automaticamente.';
@@ -155,6 +177,7 @@
       const os = /Android [\d.]+/.exec(ua) || /(iPhone|iPad).*?OS [\d_]+/.exec(ua) || /Windows NT [\d.]+|Mac OS X [\d_]+|Linux/.exec(ua);
       const installed = window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
       diag.textContent = 'Detalhes técnicos: ' + [
+        inAppBrowser() ? 'navegador embutido' : '',
         'estado=' + Midi.status,
         Midi.lastError ? 'erro=' + Midi.lastError : '',
         'navegador=' + (browser ? browser[0] : '?'),
@@ -1213,7 +1236,13 @@
   // Pausa quando o app vai para segundo plano
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && screen === 'player') player.pause();
+    // voltou para o app (ex.: depois de reconectar o cabo): tenta o MIDI de novo
+    if (!document.hidden && Midi.status === 'error') { Midi.retries = 0; Midi.init(true); }
   });
+  // com o MIDI recusado, qualquer toque na tela é uma nova chance (o Chrome gosta de pedidos com toque)
+  document.addEventListener('pointerdown', () => {
+    if (Midi.status === 'error' && !Midi.busy && Date.now() - (Midi.lastTap || 0) > 3000) { Midi.lastTap = Date.now(); Midi.init(true); }
+  }, true);
 
   // para depuração
   window.AuroraKeys = { player, synth, songs, settings, importFiles, importBuffer, toast, noteOn, noteOff, arStage };
