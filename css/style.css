@@ -610,3 +610,6 @@ body.sv-lock { overflow: hidden; }
   .sv-scroll { padding: 12px 8px 24px; }
   .sv-count { display: none; }
 }
+
+.set-diag { margin: 10px 0 0; padding: 8px 10px; border-radius: 9px; background: rgba(255,255,255,.04); border: 1px dashed var(--line-2); color: var(--muted); font: 500 11.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; user-select: text; }
+.set-diag[hidden] { display: none; }
