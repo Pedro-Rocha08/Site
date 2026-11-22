@@ -30,19 +30,33 @@
     setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 350); }, 3200);
   }
 
+  const MIDI_UNBLOCK_HELP =
+    '<b>O acesso ao MIDI foi bloqueado.</b> Para liberar:' +
+    '<br>• <b>App instalado no Android:</b> segure o ícone do Aurora Keys → <i>Informações do app</i> → <i>Permissões</i> (ou <i>Configurações do site</i>) → permita <i>Dispositivos MIDI</i>.' +
+    '<br>• <b>No Chrome:</b> toque no ícone à esquerda do endereço (ou ⋮ → <i>Configurações</i> → <i>Configurações do site</i> → <i>Dispositivos MIDI</i>) e escolha <i>Permitir</i>.' +
+    '<br>Depois toque em <b>Procurar teclado</b>.';
+
   /* ================= MIDI ================= */
   const Midi = {
     access: null,
     status: 'init',
     known: new Set(),
-    async init() {
+    // fromUser: veio de um toque. Sem toque, só pedimos se a permissão já foi dada —
+    // o Chrome no Android bloqueia pedidos feitos sem interação, e depois não pergunta mais.
+    async init(fromUser) {
       if (!navigator.requestMIDIAccess) { this.status = 'unsupported'; this.update(); return; }
+      if (!fromUser) {
+        const perm = await midiPermission();
+        if (perm === 'denied') { this.status = 'denied'; this.update(); return; }
+        if (perm === 'prompt') { this.status = 'ask'; this.update(); return; }
+      }
       try {
         this.access = await navigator.requestMIDIAccess({ sysex: false });
         this.access.onstatechange = () => this.bind(true);
         this.bind(false);
       } catch (e) {
-        this.status = 'denied';
+        console.warn('MIDI:', e);
+        this.status = (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) ? 'denied' : 'error';
         this.update();
       }
     },
@@ -84,13 +98,25 @@
       } else if (this.status === 'unsupported') {
         chip.classList.add('off');
         lbl.textContent = 'MIDI indisponível neste navegador';
+      } else if (this.status === 'error') {
+        chip.classList.add('off');
+        lbl.textContent = 'MIDI indisponível neste aparelho';
+      } else if (this.status === 'ask') {
+        lbl.textContent = 'Toque para ativar o MIDI';
       } else if (this.status === 'denied') {
         chip.classList.add('off');
-        lbl.textContent = 'Acesso MIDI bloqueado';
+        lbl.textContent = 'MIDI bloqueado: toque para ver como liberar';
       }
       fillMidiSelects();
     }
   };
+
+  async function midiPermission() {
+    try {
+      const st = await navigator.permissions.query({ name: 'midi', sysex: false });
+      return st.state; // 'granted' | 'prompt' | 'denied'
+    } catch (e) { return 'granted'; } // navegador sem a API de permissões: tenta direto
+  }
 
   function fillMidiSelects() {
     const inSel = $('#setMidiIn'), outSel = $('#setMidiOut');
@@ -101,7 +127,9 @@
     outSel.value = outs.find(o => o.id === settings.midiOut) ? settings.midiOut : '';
     const note = $('#midiNote');
     if (Midi.status === 'unsupported') note.textContent = 'Seu navegador não suporta Web MIDI. Use Google Chrome, Microsoft Edge ou Opera no computador (ou Chrome no Android).';
-    else if (Midi.status === 'denied') note.textContent = 'O navegador bloqueou o acesso ao MIDI. Clique no cadeado da barra de endereço e permita "Dispositivos MIDI".';
+    else if (Midi.status === 'error') note.textContent = 'O sistema não liberou o MIDI agora. Reconecte o cabo USB-OTG e toque em "Procurar teclado".';
+    else if (Midi.status === 'ask') note.textContent = 'Toque em "Procurar teclado" e permita o acesso a dispositivos MIDI quando o navegador perguntar.';
+    else if (Midi.status === 'denied') note.innerHTML = MIDI_UNBLOCK_HELP;
     else if (!ins.length) note.textContent = 'Conecte o teclado via USB (ou adaptador MIDI-USB). Ele aparece aqui automaticamente.';
     else note.textContent = ins.length + ' dispositivo(s) de entrada encontrado(s).';
   }
@@ -773,7 +801,15 @@
     openModal('#settingsModal');
   }
   $('#btnSettings').addEventListener('click', openSettings);
-  $('#midiChip').addEventListener('click', () => { if (Midi.status === 'init' || Midi.status === 'denied') Midi.init(); openSettings(); });
+  $('#midiChip').addEventListener('click', async () => {
+    if (Midi.status !== 'ok' && Midi.status !== 'none' && Midi.status !== 'unsupported') await Midi.init(true);
+    if (Midi.status !== 'ok') openSettings();
+  });
+  $('#btnMidiRetry').addEventListener('click', async () => {
+    await Midi.init(true);
+    if (Midi.status === 'ok') toast('Teclado MIDI liberado!');
+    else if (Midi.status === 'none') toast('MIDI liberado. Conecte o teclado.');
+  });
 
   const bindSetting = (sel, key, conv, after) => {
     $(sel).addEventListener('input', (e) => {
