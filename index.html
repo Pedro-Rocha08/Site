@@ -41,6 +41,10 @@
         </svg>
         <span>Aurora<b>Keys</b></span>
       </a>
+      <nav class="seg main-nav" aria-label="Seções">
+        <button class="on" type="button" data-go="library">Músicas</button>
+        <button type="button" data-go="sheets">Partituras</button>
+      </nav>
       <div class="top-actions">
         <button class="btn install" id="btnInstall" type="button" hidden>
           <svg viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M12 7v7m0 0-3-3m3 3 3-3M10 18h4"/></svg>
@@ -93,6 +97,74 @@
     <footer class="foot">
       <span>Dica: arraste arquivos <b>.mid</b> para qualquer lugar da página.</span>
       <span>Toque no seu teclado MIDI e veja as notas subirem pela página. Sem teclado MIDI? Use Z–M e Q–U ou o piano abaixo.</span>
+    </footer>
+  </section>
+
+  <!-- ============ PARTITURAS ============ -->
+  <section id="sheets" class="screen">
+    <header class="topbar">
+      <a class="brand" href="#" data-go="library" aria-label="Aurora Keys">
+        <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+          <defs>
+            <linearGradient id="bm2" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#2ee6d6"/><stop offset=".55" stop-color="#8b7bff"/><stop offset="1" stop-color="#ff5fb1"/>
+            </linearGradient>
+          </defs>
+          <rect x="2" y="2" width="36" height="36" rx="11" fill="url(#bm2)"/>
+          <rect x="9" y="9" width="5" height="13" rx="2.5" fill="#fff" opacity=".95"/>
+          <rect x="17.5" y="6" width="5" height="18" rx="2.5" fill="#fff" opacity=".8"/>
+          <rect x="26" y="11" width="5" height="11" rx="2.5" fill="#fff" opacity=".65"/>
+          <rect x="7" y="26" width="26" height="7" rx="2" fill="#0b0b1e" opacity=".55"/>
+        </svg>
+        <span>Aurora<b>Keys</b></span>
+      </a>
+      <nav class="seg main-nav" aria-label="Seções">
+        <button type="button" data-go="library">Músicas</button>
+        <button class="on" type="button" data-go="sheets">Partituras</button>
+      </nav>
+      <div class="top-actions"></div>
+    </header>
+
+    <div class="sheet-hero">
+      <span class="eyebrow">Acervos livres · uma busca só</span>
+      <h1>Partituras do mundo,<br><span class="grad">num lugar só.</span></h1>
+      <p>Pesquise ao mesmo tempo no <b>Mutopia</b>, <b>IMSLP</b>, <b>CPDL</b> e <b>Internet Archive</b>. Baixe o PDF direto da fonte — ou toque <b>Praticar</b> e a peça abre com as notas caindo.</p>
+      <form class="sheet-search" id="sheetForm" role="search">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="sheetQuery" type="search" placeholder="Ex.: Chopin noturno, Bach invenção, Ave Maria…" autocomplete="off" enterkeyhint="search">
+        <button class="btn primary" type="submit">Buscar</button>
+      </form>
+      <div class="sheet-opts">
+        <div class="seg small" id="sheetFilters" role="tablist">
+          <button class="on" type="button" data-src="all">Todas <span class="count"></span></button>
+          <button type="button" data-src="mutopia">Mutopia <span class="count"></span></button>
+          <button type="button" data-src="imslp">IMSLP <span class="count"></span></button>
+          <button type="button" data-src="cpdl">CPDL <span class="count"></span></button>
+          <button type="button" data-src="archive">Archive <span class="count"></span></button>
+        </div>
+        <label class="check"><input type="checkbox" id="sheetPiano"> Só piano</label>
+      </div>
+    </div>
+
+    <div class="sheet-intro" id="sheetIntro">
+      <div class="suggest">
+        <span>Experimente:</span>
+        <button type="button" data-suggest="Chopin">Chopin</button>
+        <button type="button" data-suggest="Bach invention">Bach · Invenções</button>
+        <button type="button" data-suggest="Satie">Satie</button>
+        <button type="button" data-suggest="Beethoven sonata">Beethoven · Sonatas</button>
+        <button type="button" data-suggest="Joplin rag">Scott Joplin</button>
+        <button type="button" data-suggest="Villa-Lobos">Villa-Lobos</button>
+        <button type="button" data-suggest="Ave Maria">Ave Maria</button>
+      </div>
+      <p class="sheet-stats" id="sheetStats"></p>
+    </div>
+
+    <div class="sheet-results" id="sheetResults"></div>
+
+    <footer class="foot sheet-foot">
+      <span>Só listamos acervos de <b>domínio público</b> ou <b>licença livre</b>. Os arquivos pertencem às fontes, e os downloads saem de lá. Sempre confira a licença na página da obra: o domínio público varia de país para país.</span>
+      <span>MIDIs de piano do <a href="https://www.mutopiaproject.org/" target="_blank" rel="noopener">Mutopia Project</a> incluídos no app conforme suas licenças (domínio público e Creative Commons, com crédito a cada obra).</span>
     </footer>
   </section>
 
@@ -330,6 +402,7 @@
   <script src="js/storage.js"></script>
   <script src="js/player.js"></script>
   <script src="js/ambient.js"></script>
+  <script src="js/sheets.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

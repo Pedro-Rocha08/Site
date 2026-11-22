@@ -193,7 +193,7 @@
   function fromRecord(rec, parsed) {
     const parts = assignHands(parsed.parts.map(p => ({ name: p.name, isDrum: p.isDrum, notes: p.notes })));
     return {
-      id: rec.id, title: rec.title, artist: rec.artist || 'Importada', builtin: false,
+      id: rec.id, title: rec.title, artist: rec.artist || 'Importada', builtin: false, sourceId: rec.sourceId,
       parts, duration: parsed.duration, bars: parsed.bars, bpm: parsed.bpm, added: rec.added
     };
   }
@@ -468,13 +468,16 @@
 
   const handsObj = (h) => ({ left: h !== 'right', right: h !== 'left' });
 
+  let browseScreen = 'library'; // tela para onde o player volta (Músicas ou Partituras)
   function showScreen(name) {
     screen = name;
+    if (name !== 'player') browseScreen = name;
     $('#library').classList.toggle('active', name === 'library');
+    $('#sheets').classList.toggle('active', name === 'sheets');
     $('#player').classList.toggle('active', name === 'player');
     document.body.classList.toggle('in-player', name === 'player');
     if (name === 'player') ambient.releaseAll();
-    ambient.active = name === 'library';
+    ambient.active = name !== 'player';
     ambient.dirty = true;
     if (name === 'player') {
       requestAnimationFrame(() => player.resize());
@@ -667,9 +670,44 @@
     player.pause();
     player.keyDown.clear();
     closeModal('#resultsModal');
-    showScreen('library');
-    renderLibrary();
+    showScreen(browseScreen);
+    if (browseScreen === 'library') renderLibrary();
   }
+
+  /* ================= Navegação Músicas / Partituras ================= */
+  function go(name, push) {
+    if (name === screen) return;
+    if (screen === 'player') { player.pause(); player.keyDown.clear(); }
+    showScreen(name);
+    if (name === 'library') renderLibrary();
+    if (name === 'sheets') Sheets.open();
+    window.scrollTo(0, 0);
+    const hash = name === 'sheets' ? '#partituras' : '';
+    if (push !== false && location.hash !== hash) history.pushState(null, '', hash || location.pathname + location.search);
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-go]');
+    if (!b) return;
+    e.preventDefault();
+    go(b.dataset.go);
+  });
+  window.addEventListener('popstate', () => go(location.hash === '#partituras' ? 'sheets' : 'library', false));
+
+  // MIDI vindo da busca de partituras: salva na biblioteca (uma vez só) e abre a preparação
+  async function importBuffer(buf, meta) {
+    const existing = songs.find(x => x.sourceId && x.sourceId === meta.sourceId);
+    if (existing) { openSetup(existing); return existing; }
+    const parsed = parseMidi(buf);
+    if (!parsed.parts.length) throw new Error('sem notas');
+    const rec = { id: 'user-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), title: meta.title, artist: meta.artist || 'Partitura', data: buf, added: Date.now(), sourceId: meta.sourceId };
+    await Store.putSong(rec).catch(() => toast('Não foi possível salvar no navegador; a música fica só nesta sessão.', true));
+    const song = fromRecord(rec, parsed);
+    songs.push(song);
+    toast('“' + song.title + '” adicionada às suas músicas');
+    openSetup(song);
+    return song;
+  }
+  Sheets.init({ importBuffer });
 
   /* ================= Resultados ================= */
   function starsFor(acc) { return acc >= 97 ? 5 : acc >= 90 ? 4 : acc >= 78 ? 3 : acc >= 60 ? 2 : 1; }
@@ -882,6 +920,7 @@
     });
     renderLibrary();
     requestAnimationFrame(loop);
+    if (location.hash === '#partituras') go('sheets', false);
   }
   boot();
 
@@ -958,5 +997,5 @@
   });
 
   // para depuração
-  window.AuroraKeys = { player, synth, songs, settings, importFiles, noteOn, noteOff };
+  window.AuroraKeys = { player, synth, songs, settings, importFiles, importBuffer, toast, noteOn, noteOff };
 })();

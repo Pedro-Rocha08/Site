@@ -34,6 +34,24 @@ No repositório: **Settings → Pages → Build and deployment → Deploy from a
 - Nomes das notas em **Dó Ré Mi** ou **C D E**, teclado ajustado à música ou com 88 teclas.
 - Sem teclado MIDI? Use o teclado do computador (`Z`…`M` e `Q`…`U`, `[` `]` mudam a oitava) ou toque na tela.
 - Modo **Tocar livre** com notas subindo enquanto você toca.
+- **Partituras**: busca unificada em acervos livres, com download (veja abaixo).
+
+## Partituras: uma busca, vários acervos
+
+A aba **Partituras** (ou `#partituras` no endereço) pesquisa ao mesmo tempo em:
+
+| Fonte | O que tem | Como é consultada |
+|---|---|---|
+| [Mutopia Project](https://www.mutopiaproject.org/) | ~2.100 peças em PDF, MIDI e LilyPond | índice local `data/mutopia.json` |
+| [IMSLP](https://imslp.org/) | a maior biblioteca de partituras de domínio público | API do MediaWiki (JSONP), ao vivo |
+| [CPDL](https://www.cpdl.org/) | música coral | API do MediaWiki (CORS), ao vivo |
+| [Internet Archive](https://archive.org/) | partituras digitalizadas | API de busca e metadados, ao vivo |
+
+Os downloads saem sempre da fonte original. Só entram acervos de domínio público ou com licença livre. Sites com partituras protegidas por direitos autorais ficam de fora.
+
+As peças de piano/cravo do Mutopia que têm MIDI (~790) vêm junto com o app em `assets/mutopia/`. Assim o botão **Praticar** abre a peça direto nas notas caindo e ela é salva em *Minhas músicas*. São arquivos originais, sem modificação, redistribuídos conforme a licença de cada obra; os créditos estão em `assets/mutopia/CREDITS.md`.
+
+Para atualizar o índice do Mutopia, rode de novo o script de coleta (`tools/mutopia_crawl.py` e depois `tools/mutopia_build.py`).
 
 ## Atalhos
 
@@ -54,7 +72,11 @@ js/midi-parser.js   leitor de arquivos MIDI
 js/synth.js         sintetizador de piano (Web Audio)
 js/songs.js         músicas incluídas (domínio público)
 js/player.js        motor: notas caindo, teclado, pontuação, partículas
+js/sheets.js        busca de partituras (Mutopia, IMSLP, CPDL, Internet Archive)
 js/app.js           biblioteca, MIDI, entradas e telas
+data/mutopia.json   índice do Mutopia Project
+assets/mutopia/     MIDIs de piano do Mutopia + CREDITS.md
+tools/              scripts que geram o índice do Mutopia
 ```
 
 Sem dependências e sem etapa de build.
