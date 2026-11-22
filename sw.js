@@ -1,5 +1,5 @@
 /* Aurora Keys — service worker: funciona offline depois da primeira visita */
-const VERSION = 'aurora-keys-v12';
+const VERSION = 'aurora-keys-v13';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/midi-parser.js', 'js/synth.js', 'js/songs.js', 'js/storage.js', 'js/player.js', 'js/ambient.js', 'js/sheets.js', 'js/ar.js', 'js/vendor/three.min.js', 'js/app.js', 'data/mutopia.json',
