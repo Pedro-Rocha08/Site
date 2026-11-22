@@ -58,7 +58,7 @@
     if (!mutopiaIndex) {
       mutopiaIndex = fetch('data/mutopia.json').then(r => r.json()).then(d => d.items.map(a => ({
         id: a[0], title: a[1], composer: a[2], opus: a[3], instrument: a[4], style: a[5], license: a[6],
-        pdf: a[7], mid: a[8], local: a[9] === 1, preview: a[10],
+        pdf: a[7], mid: a[8], local: a[9] === 1, preview: a[10], pages: a[11] || 0,
         hay: norm([a[1], a[2], a[3], a[4], a[5]].join(' '))
       }))).catch(e => { mutopiaIndex = null; throw e; });
     }
@@ -74,7 +74,8 @@
       meta: [p.opus, p.instrument, p.style].filter(Boolean).join(' · '),
       license: p.license, page: 'https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=' + p.id,
       files, practice: p.local ? { url: 'assets/mutopia/' + p.id + '.mid', remote: p.mid ? MUTOPIA_FTP + p.mid : '', title: p.title, artist: p.composer } : null,
-      piano: /piano|harpsichord|clavichord|keyboard/i.test(p.instrument)
+      piano: /piano|harpsichord|clavichord|keyboard/i.test(p.instrument),
+      mutopia: p, viewable: p.pages > 0 || !!p.preview
     };
   }
   async function searchMutopia(q, opts) {
@@ -99,7 +100,7 @@
         const { title, composer } = splitWikiTitle(h.title);
         return {
           source: 'imslp', key: 'i' + h.title, title, composer, meta: '', license: 'Domínio público (verifique seu país)',
-          page: 'https://imslp.org/wiki/' + encodeURIComponent(h.title.replace(/ /g, '_')), wikiTitle: h.title, files: null
+          page: 'https://imslp.org/wiki/' + encodeURIComponent(h.title.replace(/ /g, '_')), wikiTitle: h.title, files: null, viewable: true
         };
       })
     };
@@ -127,6 +128,7 @@
         if (!name) { if (i > 1) break; continue; }
         const desc = field('File Description ' + i).replace(/\{\{[^}]*\}\}/g, '').replace(/[[\]']/g, '');
         out.push({
+          name,
           kind: (name.split('.').pop() || 'arquivo').toUpperCase(),
           url: 'https://imslp.org/wiki/File:' + encodeURIComponent(name.replace(/ /g, '_')),
           label: [desc || 'Partitura', editor].filter(Boolean).join(' — '),
@@ -171,7 +173,9 @@
   /* ---------------- Internet Archive (CORS) ---------------- */
   async function searchArchive(q, opts) {
     const scope = '(subject:"sheet music" OR subject:scores OR subject:"piano music" OR collection:sheetmusic)';
-    const query = '(' + q + (opts.pianoOnly ? ' AND piano' : '') + ') AND mediatype:texts AND ' + scope;
+    // só itens abertos: fora a biblioteca de empréstimo (obras protegidas)
+    const query = '(' + q + (opts.pianoOnly ? ' AND piano' : '') + ') AND mediatype:texts AND ' + scope +
+      ' AND NOT access-restricted-item:true AND NOT collection:inlibrary AND NOT collection:printdisabled';
     const url = 'https://archive.org/advancedsearch.php?output=json&rows=' + PER_SOURCE +
       '&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=date&fl[]=licenseurl&q=' + encodeURIComponent(query);
     const d = await getJson(url);
@@ -183,7 +187,7 @@
         source: 'archive', key: 'a' + x.identifier, title: one(x.title) || x.identifier,
         composer: (one(x.creator) || '').replace(/,\s*\d{4}.*$/, ''), meta: x.date ? String(x.date).slice(0, 4) : '',
         license: x.licenseurl ? 'Licença: ' + x.licenseurl.replace(/^https?:\/\//, '') : 'Verifique os direitos na página do item',
-        page: 'https://archive.org/details/' + encodeURIComponent(x.identifier), identifier: x.identifier, files: null
+        page: 'https://archive.org/details/' + encodeURIComponent(x.identifier), identifier: x.identifier, files: null, viewable: true
       }))
     };
   }
@@ -213,6 +217,7 @@
     dl: '<svg viewBox="0 0 24 24"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>',
     play: '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg>',
     ext: '<svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+    eye: '<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>',
     list: '<svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>'
   };
 
@@ -243,6 +248,7 @@
       '</div>' +
       '<div class="sheet-actions">' +
         (r.practice ? '<button class="btn primary sm" type="button" data-practice="' + esc(r.key) + '">' + ICON.play + 'Praticar</button>' : '') +
+        (r.viewable ? '<button class="btn ghost sm" type="button" data-view="' + esc(r.key) + '">' + ICON.eye + 'Ver partitura</button>' : '') +
         quick +
         '<a class="btn ghost sm icon-only" href="' + esc(r.page) + '" target="_blank" rel="noopener" title="Abrir em ' + esc(SOURCES[r.source].name) + '" aria-label="Abrir na fonte">' + ICON.ext + '</a>' +
       '</div>' +
@@ -416,6 +422,7 @@
     ui.root.addEventListener('click', (e) => {
       const f = e.target.closest('[data-files]'); if (f) return toggleFiles(f);
       const p = e.target.closest('[data-practice]'); if (p) return practice(p);
+      const v = e.target.closest('[data-view]'); if (v) return viewResult(resultsByKey.get(v.closest('.sheet-item').dataset.key));
       const s = e.target.closest('[data-suggest]'); if (s) { ui.input.value = s.dataset.suggest; state.q = s.dataset.suggest; runSearch(); }
     });
   }
@@ -426,5 +433,188 @@
     setTimeout(() => ui.input.focus({ preventScroll: true }), 50);
   }
 
-  global.Sheets = { init, open, _splitWikiTitle: splitWikiTitle };
+  /* ================= Visualizador de partituras ================= */
+  // doc = { title, subtitle, pages: [{ src, caption, href }], links: [{ label, url }], note }
+  const viewer = { el: null, zoom: 1, docked: false };
+
+  function ensureViewer() {
+    if (viewer.el) return viewer.el;
+    const el = document.createElement('div');
+    el.className = 'score-viewer';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML =
+      '<div class="sv-bar">' +
+        '<button class="icon-btn" type="button" data-sv="close" aria-label="Fechar" title="Fechar (Esc)"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>' +
+        '<div class="sv-title"><b></b><span></span></div>' +
+        '<div class="sv-tools">' +
+          '<span class="sv-count"></span>' +
+          '<button class="icon-btn" type="button" data-sv="out" aria-label="Diminuir" title="Diminuir"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M20 20l-3.5-3.5"/></svg></button>' +
+          '<button class="icon-btn" type="button" data-sv="in" aria-label="Aumentar" title="Aumentar"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M11 8v6M20 20l-3.5-3.5"/></svg></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sv-scroll"><div class="sv-pages"></div><div class="sv-foot"></div></div>';
+    document.body.appendChild(el);
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-sv]');
+      if (!b) return;
+      const a = b.dataset.sv;
+      if (a === 'close') closeViewer();
+      if (a === 'in') setZoom(viewer.zoom + 0.25);
+      if (a === 'out') setZoom(viewer.zoom - 0.25);
+    });
+    const sc = el.querySelector('.sv-scroll');
+    sc.addEventListener('scroll', () => {
+      const pages = el.querySelectorAll('.sv-page');
+      if (!pages.length) return;
+      const mid = sc.scrollTop + sc.clientHeight / 3;
+      let cur = 1;
+      pages.forEach((pg, i) => { if (pg.offsetTop <= mid) cur = i + 1; });
+      el.querySelector('.sv-count').textContent = cur + ' / ' + pages.length;
+    }, { passive: true });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && el.classList.contains('open')) { e.stopImmediatePropagation(); closeViewer(); }
+    }, true);
+    viewer.el = el;
+    return el;
+  }
+
+  function setZoom(z) {
+    viewer.zoom = Math.max(0.5, Math.min(3, z));
+    viewer.el.style.setProperty('--sv-zoom', viewer.zoom);
+  }
+
+  function showViewer(doc, opts = {}) {
+    const el = ensureViewer();
+    viewer.docked = !!opts.docked;
+    el.classList.toggle('docked', viewer.docked);
+    el.querySelector('.sv-title b').textContent = doc.title || 'Partitura';
+    el.querySelector('.sv-title span').textContent = doc.subtitle || '';
+    const pagesEl = el.querySelector('.sv-pages');
+    if (doc.loading) {
+      pagesEl.innerHTML = '<div class="sheet-loading"><i></i><i></i><i></i></div>';
+    } else if (!doc.pages || !doc.pages.length) {
+      pagesEl.innerHTML = '<p class="sv-empty">Esta fonte não tem imagem da partitura. Use os links abaixo para abrir o PDF.</p>';
+    } else {
+      pagesEl.innerHTML = doc.pages.map((pg, i) =>
+        '<figure class="sv-page">' +
+          (pg.href ? '<a href="' + esc(pg.href) + '" target="_blank" rel="noopener">' : '') +
+          '<img src="' + esc(pg.src) + '" alt="' + esc((doc.title || 'Partitura') + ' — página ' + (i + 1)) + '"' + (i > 1 ? ' loading="lazy"' : '') + ' decoding="async">' +
+          (pg.href ? '</a>' : '') +
+          (pg.caption ? '<figcaption>' + esc(pg.caption) + '</figcaption>' : '') +
+        '</figure>').join('');
+      pagesEl.querySelectorAll('img').forEach(img => img.addEventListener('error', () => {
+        img.closest('.sv-page').classList.add('broken');
+        img.replaceWith(Object.assign(document.createElement('div'), { className: 'sv-broken', textContent: 'Não foi possível carregar esta imagem.' }));
+      }, { once: true }));
+    }
+    el.querySelector('.sv-count').textContent = doc.pages && doc.pages.length ? '1 / ' + doc.pages.length : '';
+    el.querySelector('.sv-foot').innerHTML =
+      (doc.note ? '<p>' + esc(doc.note) + '</p>' : '') +
+      (doc.links && doc.links.length ? '<div class="sv-links">' + doc.links.map(l =>
+        '<a class="btn ghost sm" href="' + esc(l.url) + '" target="_blank" rel="noopener" download>' + ICON.dl + esc(l.label) + '</a>').join('') + '</div>' : '');
+    if (!el.classList.contains('open')) {
+      el.querySelector('.sv-scroll').scrollTop = 0;
+      setZoom(1);
+      el.classList.add('open');
+      el.setAttribute('aria-hidden', 'false');
+      document.body.classList.toggle('sv-lock', !viewer.docked);
+    }
+  }
+
+  function closeViewer() {
+    if (!viewer.el) return;
+    viewer.el.classList.remove('open');
+    viewer.el.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('sv-lock');
+    if (viewer.onClose) { const f = viewer.onClose; viewer.onClose = null; f(); }
+  }
+
+  function mutopiaDoc(p) {
+    const pages = [];
+    if (p.pages > 0) {
+      for (let i = 1; i <= p.pages; i++) pages.push({ src: 'assets/mutopia/pages/' + p.id + '/' + i + '.png' });
+    } else if (p.preview) {
+      pages.push({ src: MUTOPIA_FTP + p.preview, caption: 'Prévia: início da peça. A partitura completa está no PDF.' });
+    }
+    const links = [];
+    if (p.pdf) links.push({ label: 'PDF completo', url: MUTOPIA_FTP + p.pdf });
+    if (p.mid) links.push({ label: 'MIDI', url: MUTOPIA_FTP + p.mid });
+    return {
+      title: p.title, subtitle: [p.composer, p.opus].filter(Boolean).join(' · '), pages, links,
+      note: 'Mutopia Project · ' + (p.license || '') + (p.pages > 0 ? ' · disponível offline' : '')
+    };
+  }
+
+  async function imslpDoc(r) {
+    if (!r.files) r.files = await filesImslp(r);
+    const pdfs = r.files.filter(f => f.kind === 'PDF' && f.name).slice(0, 20);
+    if (!pdfs.length) return { pages: [] };
+    const d = await jsonp('https://imslp.org/api.php?action=query&format=json&prop=imageinfo&iiprop=url&iiurlwidth=900&titles=' +
+      encodeURIComponent(pdfs.map(f => 'File:' + f.name).join('|')));
+    const thumbs = {};
+    const norm = {};
+    ((d.query && d.query.normalized) || []).forEach(n => { norm[n.to] = n.from; });
+    Object.values((d.query && d.query.pages) || {}).forEach(pg => {
+      const info = pg.imageinfo && pg.imageinfo[0];
+      if (!info || !info.thumburl || /fileicon/.test(info.thumburl)) return;
+      const from = (norm[pg.title] || pg.title).replace(/^File:/, '').replace(/ /g, '_');
+      thumbs[from] = info.thumburl.replace(/^\/\//, 'https://');
+    });
+    return {
+      pages: pdfs.filter(f => thumbs[f.name.replace(/ /g, '_')]).map(f => ({
+        src: thumbs[f.name.replace(/ /g, '_')], href: f.url, caption: (f.label || 'Partitura') + ' — toque para abrir o PDF'
+      })),
+      note: 'IMSLP mostra só a primeira página de cada edição. Toque na imagem para abrir o PDF completo (pode pedir para aceitar o aviso de domínio público).'
+    };
+  }
+
+  async function archiveDoc(r) {
+    const d = await getJson('https://archive.org/metadata/' + encodeURIComponent(r.identifier));
+    const n = Math.min(parseInt(d.metadata && d.metadata.imagecount, 10) || 0, 200);
+    const base = 'https://archive.org/download/' + encodeURIComponent(r.identifier) + '/page/n';
+    const pages = [];
+    for (let i = 0; i < n; i++) pages.push({ src: base + i + '_w900.jpg' });
+    const pdf = (d.files || []).find(f => /\.pdf$/i.test(f.name) && !/_(text|abbyy)\.pdf$/i.test(f.name));
+    return {
+      pages,
+      links: pdf ? [{ label: 'PDF completo', url: 'https://archive.org/download/' + encodeURIComponent(r.identifier) + '/' + pdf.name.split('/').map(encodeURIComponent).join('/') }] : [],
+      note: 'Internet Archive · verifique os direitos na página do item.'
+    };
+  }
+
+  async function viewResult(r) {
+    if (!r) return;
+    const head = { title: r.title, subtitle: [r.composer, SOURCES[r.source].name].filter(Boolean).join(' · ') };
+    if (r.source === 'mutopia') return showViewer(mutopiaDoc(r.mutopia));
+    showViewer(Object.assign({ loading: true }, head));
+    try {
+      const doc = r.source === 'imslp' ? await imslpDoc(r) : await archiveDoc(r);
+      if (!viewer.el.classList.contains('open')) return;
+      const links = (doc.links || []).concat([{ label: 'Abrir em ' + SOURCES[r.source].name, url: r.page }]);
+      showViewer(Object.assign({}, head, doc, { links }));
+    } catch (e) {
+      console.warn(e);
+      showViewer(Object.assign(head, { pages: [], links: [{ label: 'Abrir em ' + SOURCES[r.source].name, url: r.page }] }));
+    }
+  }
+
+  // Para o player: partitura da peça do Mutopia que está tocando (sourceId "m<ID>")
+  async function scoreForSource(sourceId) {
+    const m = /^m(\d+)$/.exec(sourceId || '');
+    if (!m) return null;
+    const idx = await loadMutopia();
+    const p = idx.find(x => x.id === +m[1]);
+    return p && (p.pages > 0 || p.preview) ? p : null;
+  }
+  async function viewSource(sourceId, opts) {
+    const p = await scoreForSource(sourceId);
+    if (!p) return false;
+    viewer.onClose = opts && opts.onClose;
+    showViewer(mutopiaDoc(p), opts);
+    return true;
+  }
+
+  global.Sheets = { init, open, viewSource, scoreForSource, closeViewer, isViewerOpen: () => !!(viewer.el && viewer.el.classList.contains('open')), _splitWikiTitle: splitWikiTitle };
 })(window);
