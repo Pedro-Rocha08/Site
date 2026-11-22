@@ -40,6 +40,7 @@
   const Midi = {
     access: null,
     status: 'init',
+    lastError: '',
     known: new Set(),
     // fromUser: veio de um toque. Sem toque, só pedimos se a permissão já foi dada —
     // o Chrome no Android bloqueia pedidos feitos sem interação, e depois não pergunta mais.
@@ -56,6 +57,7 @@
         this.bind(false);
       } catch (e) {
         console.warn('MIDI:', e);
+        this.lastError = ((e && e.name) || 'Erro') + (e && e.message ? ': ' + e.message : '');
         this.status = (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) ? 'denied' : 'error';
         this.update();
       }
@@ -132,6 +134,24 @@
     else if (Midi.status === 'denied') note.innerHTML = MIDI_UNBLOCK_HELP;
     else if (!ins.length) note.textContent = 'Conecte o teclado via USB (ou adaptador MIDI-USB). Ele aparece aqui automaticamente.';
     else note.textContent = ins.length + ' dispositivo(s) de entrada encontrado(s).';
+    // Detalhes técnicos (para diagnosticar pelo print da tela)
+    const diag = $('#midiDiag');
+    if (Midi.status === 'error' || Midi.status === 'denied' || Midi.status === 'unsupported') {
+      const ua = navigator.userAgent;
+      const browser = /SamsungBrowser\/[\d.]+/.exec(ua) || /EdgA?\/[\d.]+/.exec(ua) || /OPR\/[\d.]+/.exec(ua) || /Firefox\/[\d.]+/.exec(ua) || /Chrome\/[\d.]+/.exec(ua) || /Version\/[\d.]+.*Safari/.exec(ua);
+      const os = /Android [\d.]+/.exec(ua) || /(iPhone|iPad).*?OS [\d_]+/.exec(ua) || /Windows NT [\d.]+|Mac OS X [\d_]+|Linux/.exec(ua);
+      const installed = window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
+      diag.textContent = 'Detalhes técnicos: ' + [
+        'estado=' + Midi.status,
+        Midi.lastError ? 'erro=' + Midi.lastError : '',
+        'navegador=' + (browser ? browser[0] : '?'),
+        'sistema=' + (os ? os[0] : '?'),
+        installed ? 'app instalado' : 'no navegador',
+        'webmidi=' + (navigator.requestMIDIAccess ? 'sim' : 'não'),
+        window.isSecureContext ? 'https' : 'sem https'
+      ].filter(Boolean).join(' · ');
+      diag.hidden = false;
+    } else diag.hidden = true;
   }
 
   /* ================= Notas do usuário ================= */
