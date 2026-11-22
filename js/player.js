@@ -568,9 +568,36 @@
 
     /* ---------- Modo pauta: notas numa partitura que corre da direita para a esquerda ---------- */
     renderStaff(ctx, dt, s, style) {
-      const W = this.W, hitY = this.hitY, t = this.t;
-      const top = (this.topInset || 0) + 6;
-      const bottom = hitY - 14;
+      const W = this.W, hitY = this.hitY, t = this.t, notes = this.notes;
+      this.drawStaffArea(ctx, s, style, W, (this.topInset || 0) + 6, hitY - 14, hitY, false);
+
+      // Teclado embaixo (com as dicas de qual tecla tocar)
+      const active = new Map(), hint = new Map();
+      let k = lowerBound(notes, t - this.maxDur - 0.01, 'start');
+      for (; k < notes.length; k++) {
+        const n = notes[k];
+        if (n.start > t) break;
+        if (n.end <= t) continue;
+        if (!n.user) active.set(n.midi, n.hand);
+        else if (!n.hit && !n.missed && this.mode === 'play') hint.set(n.midi, n.hand);
+      }
+      if (this.waiting) this.waiting.forEach(n => hint.set(n.midi, n.hand));
+      const glowKeys = new Map(active);
+      this.keyDown.forEach((v, m) => glowKeys.set(m, v.hand));
+      ctx.fillStyle = '#3a0a1f';
+      ctx.fillRect(0, hitY, W, this.feltH);
+      ctx.fillStyle = this.gAurora;
+      ctx.globalAlpha = 0.9;
+      ctx.fillRect(0, hitY - 1, W, 2);
+      ctx.globalAlpha = 1;
+      this.drawKeyboard(ctx, active, hint, style, s);
+      this.drawParticles(ctx, dt, glowKeys, s);
+      this.drawPopups(ctx, dt);
+    }
+
+    // Pauta com as notas numa área da tela (inteira, ou faixa compacta no alto do player)
+    drawStaffArea(ctx, s, style, W, top, bottom, clipH, compact) {
+      const t = this.t, hitY = clipH;
       const notes = this.notes;
 
       // Faixa de alturas a mostrar (sempre as duas pautas inteiras + notas fora delas)
@@ -580,9 +607,9 @@
         this._staffRange = [Math.max(dmin, 4), Math.min(dmax, 54)];
         this._staffFor = notes;
       }
-      const [dmin, dmax] = this._staffRange;
-      const span = dmax - dmin + 5;
-      const half = clamp(Math.min((bottom - top) / span, W / 70), 3.2, 8.5);   // meio espaço entre linhas
+      const [dmin, dmax] = compact ? [14, 42] : this._staffRange;
+      const span = dmax - dmin + (compact ? 2 : 5);
+      const half = clamp(Math.min((bottom - top) / span, W / 70), compact ? 1.5 : 3.2, 8.5);   // meio espaço entre linhas
       const g = half * 2;
       const dmid = (dmin + dmax) / 2;
       const ymid = (top + bottom) / 2;
@@ -592,7 +619,7 @@
       const clefW = g * 3.2;
       const xp = Math.max(left + clefW + g * 2.5, W * (W < 640 ? 0.24 : 0.2));   // linha de execução
       const pxs = clamp(W / 4, 140, 300) * (s.fallSpeed || 1);                // pixels por segundo
-      this.staffX = xp; this.staffPxs = pxs;
+      if (!compact) { this.staffX = xp; this.staffPxs = pxs; }
       const X = (time) => xp + (time - t) * pxs;
       const bpm = (this.song && this.song.bpm) || 120;
 
@@ -620,7 +647,8 @@
       const clipL = left + clefW;
       ctx.save();
       ctx.beginPath();
-      ctx.rect(clipL, 0, W - clipL, hitY);
+      if (compact) ctx.rect(clipL, top - 4, W - clipL, bottom - top + 8);
+      else ctx.rect(clipL, 0, W - clipL, hitY);
       ctx.clip();
 
       // Barras de compasso
@@ -635,7 +663,7 @@
           if (bt > tRight) break;
           const x = Math.round(X(bt)) + 0.5;
           ctx.fillRect(x, Y(38), 1, Y(18) - Y(38));
-          if (s.barNumbers !== false) ctx.fillText(String(b + 1), x + 3, Y(38) - 5);
+          if (!compact && s.barNumbers !== false) ctx.fillText(String(b + 1), x + 3, Y(38) - 5);
         }
       }
 
@@ -739,7 +767,7 @@
         }
 
         // nome da nota (do lado oposto à haste)
-        if (s.noteLabels && n.user && x > xp - g) {
+        if (!compact && s.noteLabels && n.user && x > xp - g) {
           const up = d < (d >= 28 ? 34 : 22);
           ctx.fillStyle = 'rgba(240,242,255,0.9)';
           ctx.font = '700 ' + Math.round(clamp(g * 0.9, 9, 13)) + 'px Outfit, Inter, system-ui, sans-serif';
@@ -752,34 +780,12 @@
 
       // Linha de execução
       ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = this.gAurora;
+      ctx.fillStyle = compact ? '#a99bff' : this.gAurora;
       ctx.globalAlpha = 0.95;
       ctx.fillRect(Math.round(xp) - 1, top - 6, 2, bottom - top + 12);
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
 
-      // Teclado embaixo (com as dicas de qual tecla tocar)
-      const active = new Map(), hint = new Map();
-      let k = lowerBound(notes, t - this.maxDur - 0.01, 'start');
-      for (; k < notes.length; k++) {
-        const n = notes[k];
-        if (n.start > t) break;
-        if (n.end <= t) continue;
-        if (!n.user) active.set(n.midi, n.hand);
-        else if (!n.hit && !n.missed && this.mode === 'play') hint.set(n.midi, n.hand);
-      }
-      if (this.waiting) this.waiting.forEach(n => hint.set(n.midi, n.hand));
-      const glowKeys = new Map(active);
-      this.keyDown.forEach((v, m) => glowKeys.set(m, v.hand));
-      ctx.fillStyle = '#3a0a1f';
-      ctx.fillRect(0, hitY, W, this.feltH);
-      ctx.fillStyle = this.gAurora;
-      ctx.globalAlpha = 0.9;
-      ctx.fillRect(0, hitY - 1, W, 2);
-      ctx.globalAlpha = 1;
-      this.drawKeyboard(ctx, active, hint, style, s);
-      this.drawParticles(ctx, dt, glowKeys, s);
-      this.drawPopups(ctx, dt);
     }
 
     drawNotes(ctx, t, hitY, pps, style, s) {
