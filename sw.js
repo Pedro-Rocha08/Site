@@ -1,5 +1,5 @@
 /* Aurora Keys — service worker: funciona offline depois da primeira visita */
-const VERSION = 'aurora-keys-v3';
+const VERSION = 'aurora-keys-v4';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/midi-parser.js', 'js/synth.js', 'js/songs.js', 'js/storage.js', 'js/player.js', 'js/ambient.js', 'js/sheets.js', 'js/app.js', 'data/mutopia.json',
@@ -8,7 +8,10 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // Cada arquivo separado: se um faltar, o resto continua funcionando (addAll falharia inteiro)
+  e.waitUntil(caches.open(VERSION)
+    .then(c => Promise.all(SHELL.map(u => c.add(u).catch(() => console.warn('SW: não consegui guardar', u)))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {

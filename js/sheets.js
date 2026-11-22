@@ -73,7 +73,7 @@
       source: 'mutopia', key: 'm' + p.id, title: p.title, composer: p.composer,
       meta: [p.opus, p.instrument, p.style].filter(Boolean).join(' · '),
       license: p.license, page: 'https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=' + p.id,
-      files, practice: p.local ? { url: 'assets/mutopia/' + p.id + '.mid', title: p.title, artist: p.composer } : null,
+      files, practice: p.local ? { url: 'assets/mutopia/' + p.id + '.mid', remote: p.mid ? MUTOPIA_FTP + p.mid : '', title: p.title, artist: p.composer } : null,
       piano: /piano|harpsichord|clavichord|keyboard/i.test(p.instrument)
     };
   }
@@ -343,12 +343,21 @@
         const p = idx.find(x => x.local && norm(x.title).includes(n) && !seen.has(x.id));
         if (p) { seen.add(p.id); items.push(p); }
       }
-      for (const p of idx) { if (items.length >= 16) break; if (p.local && !seen.has(p.id) && /Romantic|Classical|Baroque/.test(p.style)) { seen.add(p.id); items.push(p); } }
+      const composers = new Set(items.map(p => p.composer));
+      for (const p of idx) {
+        if (items.length >= 16) break;
+        if (p.local && !seen.has(p.id) && !composers.has(p.composer) && /^Piano$/i.test(p.instrument) && /Romantic|Classical|Baroque/.test(p.style)) {
+          seen.add(p.id); composers.add(p.composer); items.push(p);
+        }
+      }
       const localCount = idx.filter(p => p.local).length;
       state.bySource = { mutopia: { status: 'ok', total: localCount, items: items.map(mutopiaResult) } };
       ui.stats.textContent = idx.length.toLocaleString('pt-BR') + ' peças do Mutopia no índice · ' + localCount.toLocaleString('pt-BR') + ' prontas para praticar';
     } catch (e) {
-      state.bySource = { mutopia: { status: 'error', total: 0, items: [] } };
+      console.warn('Partituras: índice do Mutopia indisponível', e);
+      started = false; // tenta de novo na próxima vez que a aba abrir
+      ui.stats.textContent = 'Os destaques não carregaram agora — a busca acima continua funcionando nos quatro acervos.';
+      state.bySource = {};
     }
     render();
   }
@@ -382,7 +391,8 @@
       await importer(buf, { title: r.practice.title, artist: r.practice.artist, sourceId: r.key, license: r.license, page: r.page });
     } catch (e) {
       console.warn(e);
-      global.AuroraKeys && global.AuroraKeys.toast && global.AuroraKeys.toast('Não consegui abrir este MIDI', true);
+      const t = global.AuroraKeys && global.AuroraKeys.toast;
+      if (t) t(r.practice.remote ? 'Não consegui abrir este MIDI aqui. Baixe pelo botão MIDI e use “Importar MIDI”.' : 'Não consegui abrir este MIDI', true);
     } finally { btn.disabled = false; }
   }
 
