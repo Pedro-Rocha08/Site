@@ -524,6 +524,10 @@
     player.setSpeed(cfg.speed || 1);
     $('#player').classList.toggle('free', !!song.free);
     $('#hudSong').textContent = song.title;
+    // Partitura escrita (peças do Mutopia): botão no player
+    const btnScore = $('#btnScore');
+    btnScore.hidden = true;
+    if (song.sourceId) Sheets.scoreForSource(song.sourceId).then(p => { if (current && current.song === song) btnScore.hidden = !p; }).catch(() => {});
     syncHud();
     drawDensity();
     updateLoopUi();
@@ -694,7 +698,15 @@
   document.addEventListener('mousemove', poke);
   document.addEventListener('pointerdown', poke);
 
+  $('#btnScore').addEventListener('click', () => {
+    if (Sheets.isViewerOpen()) { Sheets.closeViewer(); return; }
+    // painel logo abaixo da barra do player, para os controles continuarem acessíveis
+    const hud = $('#player .hud').getBoundingClientRect();
+    if (current) Sheets.viewSource(current.song.sourceId, { docked: true, top: hud.bottom + 6 });
+  });
+
   function goLibrary() {
+    Sheets.closeViewer();
     player.pause();
     player.keyDown.clear();
     closeModal('#resultsModal');
