@@ -472,7 +472,14 @@
     screen = name;
     $('#library').classList.toggle('active', name === 'library');
     $('#player').classList.toggle('active', name === 'player');
-    if (name === 'player') requestAnimationFrame(() => player.resize());
+    document.body.classList.toggle('in-player', name === 'player');
+    if (name === 'player') {
+      requestAnimationFrame(() => player.resize());
+      const hint = $('#rotateHint');
+      hint.classList.add('show');
+      clearTimeout(showScreen.hintTimer);
+      showScreen.hintTimer = setTimeout(() => hint.classList.remove('show'), 4500);
+    }
   }
 
   function startSong(song, cfg) {
@@ -852,6 +859,78 @@
     requestAnimationFrame(loop);
   }
   boot();
+
+  /* ================= Instalação como aplicativo (PWA) ================= */
+  const standalone = window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/.test(ua);
+  let deferredPrompt = null;
+  const btnInstall = $('#btnInstall');
+
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    btnInstall.hidden = false;
+  });
+  window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    btnInstall.hidden = true;
+    closeModal('#installModal');
+    toast('Aurora Keys instalado! Procure o ícone na tela inicial.');
+  });
+
+  // No iPhone/iPad não existe o aviso automático: mostramos o botão com instruções.
+  if (!standalone && (isIOS || isAndroid)) btnInstall.hidden = false;
+
+  const ICON_SHARE = '<svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1"/></svg>';
+  const ICON_DOTS = '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>';
+  const ICON_ADD = '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg>';
+
+  btnInstall.addEventListener('click', async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const choice = await deferredPrompt.userChoice.catch(() => null);
+      deferredPrompt = null;
+      if (choice && choice.outcome === 'accepted') btnInstall.hidden = true;
+      return;
+    }
+    let steps;
+    if (isIOS) {
+      steps = '<ol class="install-steps">' +
+        '<li><span>Abra esta página no <b>Safari</b>.</span></li>' +
+        '<li><span>Toque em <b>Compartilhar</b> ' + ICON_SHARE + ' na barra do navegador.</span></li>' +
+        '<li><span>Escolha <b>Adicionar à Tela de Início</b> ' + ICON_ADD + ' e toque em <b>Adicionar</b>.</span></li></ol>' +
+        '<p class="install-note">No iPhone e iPad, a Apple não permite teclado MIDI em apps da web. Você pode tocar pela tela ou ouvir as músicas.</p>';
+    } else {
+      steps = '<ol class="install-steps">' +
+        '<li><span>Abra esta página no <b>Chrome</b>.</span></li>' +
+        '<li><span>Toque no menu ' + ICON_DOTS + ' no canto superior.</span></li>' +
+        '<li><span>Escolha <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.</span></li></ol>' +
+        '<p class="install-note">No Android, conecte o teclado MIDI com um cabo USB-OTG. Ele é reconhecido pelo app instalado.</p>';
+    }
+    $('#installSteps').innerHTML = steps;
+    openModal('#installModal');
+  });
+
+  // Abrir arquivos .mid direto pelo sistema (app instalado no computador)
+  if ('launchQueue' in window) {
+    window.launchQueue.setConsumer(async (params) => {
+      if (!params.files || !params.files.length) return;
+      const files = await Promise.all(params.files.map(h => h.getFile()));
+      importFiles(files);
+    });
+  }
+
+  // Pausa quando o app vai para segundo plano
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && screen === 'player') player.pause();
+  });
 
   // para depuração
   window.AuroraKeys = { player, synth, songs, settings, importFiles, noteOn, noteOff };

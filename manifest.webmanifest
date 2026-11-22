@@ -1,0 +1,23 @@
+{
+  "name": "Aurora Keys",
+  "short_name": "Aurora Keys",
+  "description": "Aprenda piano com notas caindo, teclado MIDI e suas próprias músicas.",
+  "lang": "pt-BR",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#07071a",
+  "theme_color": "#07071a",
+  "categories": ["music", "education", "games"],
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "file_handlers": [
+    { "action": "./", "accept": { "audio/midi": [".mid", ".midi"] } }
+  ]
+}

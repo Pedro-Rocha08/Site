@@ -13,6 +13,17 @@ python3 -m http.server 8000
 # abra http://localhost:8000
 ```
 
+## Instalar no celular (como aplicativo)
+
+O Aurora Keys é um PWA: depois de publicado num endereço `https://` (por exemplo no GitHub Pages), ele pode ser instalado e abre em tela cheia, com ícone próprio e funcionando sem internet.
+
+- **Android (Chrome):** toque em **Instalar app** no topo da página, ou menu ⋮ → *Instalar app*. Teclado MIDI funciona via cabo USB-OTG.
+- **iPhone/iPad (Safari):** Compartilhar → *Adicionar à Tela de Início*. A Apple não libera MIDI para apps da web, então no iOS dá para tocar pela tela e ouvir as músicas.
+
+### Publicar no GitHub Pages
+
+No repositório: **Settings → Pages → Build and deployment → Deploy from a branch**, escolha a branch e a pasta `/ (root)`. O endereço será `https://<usuario>.github.io/<repositorio>/`.
+
 ## Recursos
 
 - **Teclado MIDI** via Web MIDI: detecção automática, escolha de entrada, pedal de sustentação e saída MIDI opcional (para a música tocar no som do seu piano digital).
