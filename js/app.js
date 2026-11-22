@@ -594,8 +594,15 @@
     placeScoreboard();
     syncViewBtn();
   }
+  function stripVisible() { return !player.free && settings.view !== 'staff'; }
   function placeScoreboard() {
-    $('#scoreboard').style.top = ($('.hud').offsetHeight + 22) + 'px';
+    const hud = $('#player .hud');
+    const strip = $('#staffStrip');
+    const hudBottom = hud.offsetTop + hud.offsetHeight;
+    strip.style.top = (hudBottom + 8) + 'px';
+    strip.hidden = !stripVisible();
+    const below = strip.offsetHeight ? hudBottom + 8 + strip.offsetHeight : hudBottom;
+    $('#scoreboard').style.top = (below + 10) + 'px';
     placeStaff();
   }
   // No modo pauta, a partitura começa logo abaixo da barra de controles (e do placar)
@@ -614,7 +621,7 @@
     b.setAttribute('aria-label', b.title);
     $('#player').classList.toggle('staff-view', staff && !player.free);
     player.layout();
-    placeStaff();
+    placeScoreboard();
   }
   $('#btnView').addEventListener('click', () => {
     settings.view = settings.view === 'staff' ? 'falling' : 'staff';
@@ -999,9 +1006,26 @@
   /* ================= Laço principal ================= */
   const startOverlay = $('#startOverlay');
   const btnPlay = $('#btnPlay');
+  // Faixa de partitura no alto do player (no lugar da faixa de densidade)
+  const strip = $('#staffStrip');
+  const stripCtx = strip.getContext('2d');
+  function drawStrip() {
+    if (player.free || settings.view === 'staff' || !player.notes.length) return;
+    const r = strip.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+    if (strip.width !== w || strip.height !== h) { strip.width = w; strip.height = h; }
+    stripCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    stripCtx.clearRect(0, 0, r.width, r.height);
+    const s = player.settings();
+    player.drawStaffArea(stripCtx, s, s.noteNames, r.width, 4, r.height - 4, r.height, true);
+  }
+
   function loop(now) {
     if (screen === 'player') {
       player.frame(now);
+      drawStrip();
       if (!player.free) {
         btnPlay.classList.toggle('playing', player.playing);
         const show = !player.playing && !anyModalOpen();

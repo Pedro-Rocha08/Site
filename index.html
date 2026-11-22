@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Music&text=%F0%9D%84%9E%F0%9D%84%A2%E2%99%AF&display=block" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=9">
+  <link rel="stylesheet" href="css/style.css?v=10">
 </head>
 <body>
   <div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
@@ -213,6 +213,7 @@
         </div>
       </div>
 
+
       <div class="hud-right">
         <div class="stepper" title="Velocidade (↑ ↓)">
           <button id="speedDown" type="button" aria-label="Mais devagar">−</button>
@@ -235,6 +236,8 @@
         </button>
       </div>
     </div>
+
+    <canvas class="staff-strip" id="staffStrip" aria-label="Partitura da música, acompanhando o tempo"></canvas>
 
     <div class="scoreboard" id="scoreboard">
       <div class="sb-item"><span class="sb-val" id="sbAcc">100%</span><span class="sb-lbl">precisão</span></div>
@@ -419,13 +422,13 @@
       t.appendChild(d); setTimeout(function () { d.remove(); }, 8000);
     });
   </script>
-  <script src="js/midi-parser.js?v=9"></script>
-  <script src="js/synth.js?v=9"></script>
-  <script src="js/songs.js?v=9"></script>
-  <script src="js/storage.js?v=9"></script>
-  <script src="js/player.js?v=9"></script>
-  <script src="js/ambient.js?v=9"></script>
-  <script src="js/sheets.js?v=9"></script>
-  <script src="js/app.js?v=9"></script>
+  <script src="js/midi-parser.js?v=10"></script>
+  <script src="js/synth.js?v=10"></script>
+  <script src="js/songs.js?v=10"></script>
+  <script src="js/storage.js?v=10"></script>
+  <script src="js/player.js?v=10"></script>
+  <script src="js/ambient.js?v=10"></script>
+  <script src="js/sheets.js?v=10"></script>
+  <script src="js/app.js?v=10"></script>
 </body>
 </html>

@@ -621,3 +621,21 @@ body.sv-lock { overflow: hidden; }
 @media (max-height: 560px) {
   #player.staff-view .scoreboard { display: none; }
 }
+
+/* Faixa de partitura no alto do player: substitui o gráfico de densidade.
+   Painel próprio, logo abaixo da barra de controles, sempre visível enquanto toca. */
+.staff-strip { position: absolute; z-index: 4; left: 12px; right: 12px; top: 120px; display: block;
+  width: calc(100% - 24px); height: 132px; border-radius: 14px;
+  background: rgba(7, 8, 22, 0.94); border: 1px solid var(--line-2); box-shadow: 0 16px 40px -18px rgba(0,0,0,.9); }
+.staff-strip[hidden], #player.staff-view .staff-strip, #player.free .staff-strip { display: none; }
+#player .staff-strip { left: calc(12px + env(safe-area-inset-left, 0px)); width: calc(100% - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)); }
+.progress { height: 12px; border-radius: 7px; }
+.progress canvas { display: none; }
+@media (max-width: 640px) {
+  #player .staff-strip { left: 8px; width: calc(100% - 16px); height: 124px; }
+}
+/* Tela baixa (celular deitado): não cabe a faixa e as notas caindo juntas; use o modo partitura */
+@media (max-height: 520px) {
+  #player .staff-strip { display: none; }
+}
+
