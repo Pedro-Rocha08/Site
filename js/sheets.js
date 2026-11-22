@@ -489,6 +489,7 @@
     const el = ensureViewer();
     viewer.docked = !!opts.docked;
     el.classList.toggle('docked', viewer.docked);
+    el.style.top = viewer.docked && opts.top ? Math.round(opts.top) + 'px' : '';
     el.querySelector('.sv-title b').textContent = doc.title || 'Partitura';
     el.querySelector('.sv-title span').textContent = doc.subtitle || '';
     const pagesEl = el.querySelector('.sv-pages');
@@ -543,7 +544,7 @@
     if (p.mid) links.push({ label: 'MIDI', url: MUTOPIA_FTP + p.mid });
     return {
       title: p.title, subtitle: [p.composer, p.opus].filter(Boolean).join(' · '), pages, links,
-      note: 'Mutopia Project · ' + (p.license || '') + (p.pages > 0 ? ' · disponível offline' : '')
+      note: 'Mutopia Project · ' + (p.license || '') + (p.pages > 0 ? ' · incluída no app (fica salva offline depois de aberta)' : '')
     };
   }
 

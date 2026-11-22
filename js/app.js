@@ -700,7 +700,9 @@
 
   $('#btnScore').addEventListener('click', () => {
     if (Sheets.isViewerOpen()) { Sheets.closeViewer(); return; }
-    if (current) Sheets.viewSource(current.song.sourceId, { docked: true });
+    // painel logo abaixo da barra do player, para os controles continuarem acessíveis
+    const hud = $('#player .hud').getBoundingClientRect();
+    if (current) Sheets.viewSource(current.song.sourceId, { docked: true, top: hud.bottom + 6 });
   });
 
   function goLibrary() {

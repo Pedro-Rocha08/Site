@@ -51,7 +51,17 @@ Os downloads saem sempre da fonte original. Só entram acervos de domínio públ
 
 As peças de piano/cravo do Mutopia que têm MIDI (~790) vêm junto com o app em `assets/mutopia/`. Assim o botão **Praticar** abre a peça direto nas notas caindo e ela é salva em *Minhas músicas*. São arquivos originais, sem modificação, redistribuídos conforme a licença de cada obra; os créditos estão em `assets/mutopia/CREDITS.md`.
 
-Para atualizar o índice do Mutopia, rode de novo o script de coleta (`tools/mutopia_crawl.py` e depois `tools/mutopia_build.py`).
+### Ver a partitura escrita
+
+O botão **Ver partitura** abre as páginas da partitura como imagem, sem sair do app:
+
+- **Mutopia, peças de piano (775):** todas as páginas, incluídas no app em `assets/mutopia/pages/<id>/` (PNG leve em 4 tons de cinza, ~58 MB no total). Elas também aparecem no player, no botão de partitura, num painel em cima enquanto as notas caem.
+- **Mutopia, demais peças:** imagem de prévia (início da peça) + PDF completo.
+- **Internet Archive:** todas as páginas digitalizadas (só itens abertos; a biblioteca de empréstimo fica de fora).
+- **IMSLP:** a primeira página de cada edição; tocar na imagem abre o PDF completo.
+- **CPDL:** não oferece imagens, só os arquivos para baixar.
+
+Para atualizar o índice do Mutopia, rode de novo o script de coleta (`tools/mutopia_crawl.py`, depois `tools/mutopia_build.py` e `tools/mutopia_pages.py`).
 
 ## Atalhos
 

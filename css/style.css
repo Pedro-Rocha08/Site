@@ -602,7 +602,7 @@ body.sv-lock { overflow: hidden; }
 .sv-foot p { margin: 0 0 12px; }
 .sv-links { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 /* No player: painel na parte de cima, as notas continuam caindo embaixo */
-.score-viewer.docked { bottom: auto; height: 52vh; height: 52dvh; background: rgba(7, 7, 26, .92); border-bottom: 1px solid var(--line-2); box-shadow: 0 20px 50px -20px rgba(0,0,0,.9); }
+.score-viewer.docked { bottom: auto; height: 46vh; height: 46dvh; border-top: 1px solid var(--line-2); border-radius: 0 0 14px 14px; background: rgba(7, 7, 26, .92); border-bottom: 1px solid var(--line-2); box-shadow: 0 20px 50px -20px rgba(0,0,0,.9); }
 .score-viewer.docked .sv-scroll { padding-top: 12px; }
 #btnScore[hidden] { display: none; }
 @media (max-width: 640px) {
