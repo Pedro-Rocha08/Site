@@ -613,3 +613,11 @@ body.sv-lock { overflow: hidden; }
 
 .set-diag { margin: 10px 0 0; padding: 8px 10px; border-radius: 9px; background: rgba(255,255,255,.04); border: 1px dashed var(--line-2); color: var(--muted); font: 500 11.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; user-select: text; }
 .set-diag[hidden] { display: none; }
+
+#btnView.on { background: rgba(139,123,255,.22); border-color: rgba(139,123,255,.55); color: var(--text); }
+#player.free #btnView { display: none; }
+
+/* Tela baixa (celular deitado) no modo pauta: o placar sai da frente da partitura */
+@media (max-height: 560px) {
+  #player.staff-view .scoreboard { display: none; }
+}

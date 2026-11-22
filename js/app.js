@@ -13,7 +13,7 @@
   const DEFAULTS = {
     noteNames: 'solfege', noteLabels: true, keyLabels: 'c', keyRange: 'fit', userSound: true,
     volume: 0.8, fallSpeed: 1, particles: true, midiIn: 'all', midiOut: '', autoSoundWithOut: false,
-    lastMode: 'practice', lastHands: 'both'
+    lastMode: 'practice', lastHands: 'both', view: 'staff'
   };
   const settings = Object.assign({}, DEFAULTS, Store.get('settings', {}));
   const saveSettings = () => Store.set('settings', settings);
@@ -491,7 +491,15 @@
     $$('#modeCards .mode-card').forEach(b => b.classList.toggle('on', b.dataset.mode === setup.mode));
     $$('#setupHands button').forEach(b => b.classList.toggle('on', b.dataset.hand === setup.hands));
     $('#setupHands').style.opacity = setup.mode === 'listen' ? 0.45 : 1;
+    $$('#setupView button').forEach(b => b.classList.toggle('on', b.dataset.view === settings.view));
   }
+  $('#setupView').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    settings.view = b.dataset.view;
+    saveSettings();
+    syncSetup();
+  });
   $('#modeCards').addEventListener('click', (e) => {
     const b = e.target.closest('.mode-card');
     if (!b) return;
@@ -584,10 +592,36 @@
     $('#scoreboard').classList.toggle('hidden', player.mode === 'listen' || player.free);
     updateScore(player.stats);
     placeScoreboard();
+    syncViewBtn();
   }
   function placeScoreboard() {
     $('#scoreboard').style.top = ($('.hud').offsetHeight + 22) + 'px';
+    placeStaff();
   }
+  // No modo pauta, a partitura começa logo abaixo da barra de controles (e do placar)
+  function placeStaff() {
+    const c = $('#stage').getBoundingClientRect();
+    let bottom = $('#player .hud').getBoundingClientRect().bottom;
+    const sb = $('#scoreboard');
+    if (!sb.classList.contains('hidden') && getComputedStyle(sb).display !== 'none') bottom = Math.max(bottom, sb.getBoundingClientRect().bottom);
+    player.topInset = Math.max(0, bottom - c.top + 4);
+  }
+  function syncViewBtn() {
+    const b = $('#btnView');
+    const staff = settings.view === 'staff';
+    b.classList.toggle('on', staff);
+    b.title = staff ? 'Mostrar notas caindo' : 'Mostrar partitura (pauta)';
+    b.setAttribute('aria-label', b.title);
+    $('#player').classList.toggle('staff-view', staff && !player.free);
+    player.layout();
+    placeStaff();
+  }
+  $('#btnView').addEventListener('click', () => {
+    settings.view = settings.view === 'staff' ? 'falling' : 'staff';
+    saveSettings();
+    syncViewBtn();
+    toast(settings.view === 'staff' ? 'Modo partitura' : 'Modo notas caindo');
+  });
 
   const hudFree = document.createElement('style');
   hudFree.textContent = '#player.free .hud { grid-template-columns: 1fr auto !important; grid-template-areas: "l r" !important } #player.free .hud-center, #player.free #modeSeg, #player.free .hud-right .stepper, #player.free .hud-right .hands { display:none !important }';

@@ -21,6 +21,11 @@
 
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+  // Pauta: posição diatônica (C4 = 28). Teclas pretas usam a nota natural de baixo + sustenido.
+  const STEP = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6];
+  const diatonic = (m) => (Math.floor(m / 12) - 1) * 7 + STEP[((m % 12) + 12) % 12];
+  const CLEF_FONT = '"Noto Music", "Bravura", "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", serif';
+
   function lowerBound(arr, t, key) {
     let lo = 0, hi = arr.length;
     while (lo < hi) { const m = (lo + hi) >> 1; if (arr[m][key] < t) lo = m + 1; else hi = m; }
@@ -209,7 +214,9 @@
       for (let m = lo; m <= hi; m++) if (!isBlack(m)) whites.push(m);
       const ww = this.W / whites.length;
       this.whiteW = ww;
-      const kbH = Math.round(clamp(Math.min(this.H * 0.26, ww * 6.4), 70, 230));
+      const staff = !this.free && this.settings().view === 'staff';
+      // no modo pauta o teclado fica mais baixo, para sobrar espaço para a partitura
+      const kbH = Math.round(staff ? clamp(Math.min(this.H * 0.2, ww * 5), 56, 170) : clamp(Math.min(this.H * 0.26, ww * 6.4), 70, 230));
       this.kbH = kbH;
       this.feltH = 5;
       this.hitY = this.H - kbH;
@@ -458,10 +465,12 @@
       const s = this.settings();
       const style = s.noteNames;
       ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      const staffView = !this.free && s.view === 'staff';
 
       // Fundo
       ctx.fillStyle = this.gBg;
       ctx.fillRect(0, 0, W, hitY);
+      if (staffView) return this.renderStaff(ctx, dt, s, style);
 
       // Faixas das teclas pretas e linhas de oitava
       ctx.fillStyle = 'rgba(255,255,255,0.018)';
@@ -555,6 +564,222 @@
       this.drawParticles(ctx, dt, glowKeys, s);
       this.drawPopups(ctx, dt);
       if (this.waiting && this.waiting.length) this.drawWaiting(ctx, style);
+    }
+
+    /* ---------- Modo pauta: notas numa partitura que corre da direita para a esquerda ---------- */
+    renderStaff(ctx, dt, s, style) {
+      const W = this.W, hitY = this.hitY, t = this.t;
+      const top = (this.topInset || 0) + 6;
+      const bottom = hitY - 14;
+      const notes = this.notes;
+
+      // Faixa de alturas a mostrar (sempre as duas pautas inteiras + notas fora delas)
+      if (this._staffFor !== notes) {
+        let dmin = 16, dmax = 40;
+        for (const n of notes) { const d = diatonic(n.midi); if (d < dmin) dmin = d; if (d > dmax) dmax = d; }
+        this._staffRange = [Math.max(dmin, 4), Math.min(dmax, 54)];
+        this._staffFor = notes;
+      }
+      const [dmin, dmax] = this._staffRange;
+      const span = dmax - dmin + 5;
+      const half = clamp(Math.min((bottom - top) / span, W / 70), 3.2, 8.5);   // meio espaço entre linhas
+      const g = half * 2;
+      const dmid = (dmin + dmax) / 2;
+      const ymid = (top + bottom) / 2;
+      const Y = (d) => ymid - (d - dmid) * half;
+
+      const left = 8;
+      const clefW = g * 3.2;
+      const xp = Math.max(left + clefW + g * 2.5, W * (W < 640 ? 0.24 : 0.2));   // linha de execução
+      const pxs = clamp(W / 4, 140, 300) * (s.fallSpeed || 1);                // pixels por segundo
+      this.staffX = xp; this.staffPxs = pxs;
+      const X = (time) => xp + (time - t) * pxs;
+      const bpm = (this.song && this.song.bpm) || 120;
+
+      // Linhas das pautas
+      const LINES = [18, 20, 22, 24, 26, 30, 32, 34, 36, 38];
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(226,230,255,0.42)';
+      ctx.beginPath();
+      for (const d of LINES) { const y = Math.round(Y(d)) + 0.5; ctx.moveTo(left, y); ctx.lineTo(W - 4, y); }
+      ctx.stroke();
+      // chave e barra inicial
+      ctx.fillStyle = 'rgba(226,230,255,0.55)';
+      ctx.fillRect(left, Y(38), 2, Y(18) - Y(38));
+
+      // Claves (fixas na esquerda)
+      ctx.fillStyle = 'rgba(240,242,255,0.9)';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.font = Math.round(g * 4.1) + 'px ' + CLEF_FONT;
+      ctx.fillText('\u{1D11E}', left + g * 0.35, Y(32) + g * 0.02);
+      ctx.font = Math.round(g * 3.1) + 'px ' + CLEF_FONT;
+      ctx.fillText('\u{1D122}', left + g * 0.35, Y(24) + g * 1.05);
+
+      // Área das notas (não passa por cima das claves)
+      const clipL = left + clefW;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(clipL, 0, W - clipL, hitY);
+      ctx.clip();
+
+      // Barras de compasso
+      const bars = this.song && this.song.bars;
+      const tLeft = t - (xp - clipL) / pxs, tRight = t + (W - xp) / pxs;
+      if (bars && bars.length) {
+        ctx.fillStyle = 'rgba(226,230,255,0.32)';
+        ctx.font = '600 ' + Math.round(clamp(g * 0.9, 9, 12)) + 'px Inter, system-ui, sans-serif';
+        for (let b = 0; b < bars.length; b++) {
+          const bt = bars[b];
+          if (bt < tLeft) continue;
+          if (bt > tRight) break;
+          const x = Math.round(X(bt)) + 0.5;
+          ctx.fillRect(x, Y(38), 1, Y(18) - Y(38));
+          if (s.barNumbers !== false) ctx.fillText(String(b + 1), x + 3, Y(38) - 5);
+        }
+      }
+
+      // Faixa da linha de execução
+      const band = ctx.createLinearGradient(xp - g * 1.6, 0, xp + g * 1.6, 0);
+      band.addColorStop(0, 'rgba(139,123,255,0)');
+      band.addColorStop(0.5, 'rgba(139,123,255,0.16)');
+      band.addColorStop(1, 'rgba(139,123,255,0)');
+      ctx.fillStyle = band;
+      ctx.fillRect(xp - g * 1.6, top - 4, g * 3.2, bottom - top + 8);
+
+      // Notas
+      const waitSet = new Set(this.waiting || []);
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 180);
+      const rx = g * 0.64, ry = g * 0.46;
+      let i = lowerBound(notes, tLeft - this.maxDur - 0.05, 'start');
+      for (; i < notes.length; i++) {
+        const n = notes[i];
+        if (n.start > tRight + 0.2) break;
+        const x = X(n.start);
+        const xEnd = X(n.end);
+        if (xEnd < clipL - rx) continue;
+        const d = diatonic(n.midi);
+        const y = Y(d);
+        const passed = n.start < t - 0.02;
+        let col;
+        if (n.hit) col = '#4ade80';
+        else if (n.missed) col = '#f87171';
+        else if (n.user) col = HANDS[n.hand] ? HANDS[n.hand].base : '#e6ecff';
+        else col = 'rgba(214,220,255,0.55)';
+        const fade = passed && !n.user ? 0.45 : 1;
+        ctx.globalAlpha = fade * (x < xp - g * 6 ? clamp(1 - (xp - g * 6 - x) / (g * 10), 0.25, 1) : 1);
+
+        // duração: faixa fina atrás da nota
+        if (xEnd - x > rx * 2) {
+          ctx.fillStyle = col;
+          ctx.globalAlpha *= 0.22;
+          ctx.fillRect(x, y - ry * 0.55, xEnd - x, ry * 1.1);
+          ctx.globalAlpha /= 0.22;
+        }
+
+        // linhas suplementares
+        ctx.strokeStyle = 'rgba(226,230,255,0.55)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        const led = (dd) => { const yy = Math.round(Y(dd)) + 0.5; ctx.moveTo(x - rx * 1.55, yy); ctx.lineTo(x + rx * 1.55, yy); };
+        if (d === 28) led(28);
+        for (let dd = 40; dd <= d; dd += 2) led(dd);
+        for (let dd = 16; dd >= d; dd -= 2) led(dd);
+        ctx.stroke();
+
+        // destaque da nota que você precisa tocar agora
+        if (waitSet.has(n)) {
+          ctx.save();
+          ctx.globalAlpha = 0.35 + 0.45 * pulse;
+          ctx.fillStyle = col;
+          ctx.beginPath();
+          ctx.ellipse(x, y, rx * 1.9, ry * 1.9, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // cabeça da nota
+        const beats = (n.end - n.start) * bpm / 60;
+        const hollow = beats >= 1.75;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(-0.33);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+        if (hollow) { ctx.lineWidth = Math.max(1.6, g * 0.2); ctx.strokeStyle = col; ctx.stroke(); }
+        else { ctx.fillStyle = col; ctx.fill(); }
+        ctx.restore();
+
+        // haste e bandeirolas
+        if (beats < 3.5) {
+          const mid = d >= 28 ? 34 : 22;
+          const up = d < mid;
+          const sx = up ? x + rx * 0.92 : x - rx * 0.92;
+          const sy = up ? y - g * 3.3 : y + g * 3.3;
+          ctx.strokeStyle = col;
+          ctx.lineWidth = Math.max(1.2, g * 0.12);
+          ctx.beginPath();
+          ctx.moveTo(sx, y + (up ? -ry * 0.2 : ry * 0.2));
+          ctx.lineTo(sx, sy);
+          const flags = beats < 0.375 ? 2 : beats < 0.75 ? 1 : 0;
+          for (let f = 0; f < flags; f++) {
+            const fy = sy + (up ? 1 : -1) * f * g * 0.8;
+            ctx.moveTo(sx, fy);
+            ctx.quadraticCurveTo(sx + g * 1.1, fy + (up ? 1 : -1) * g * 0.9, sx + g * 0.75, fy + (up ? 1 : -1) * g * 2);
+          }
+          ctx.stroke();
+        }
+
+        // sustenido
+        if (isBlack(n.midi)) {
+          ctx.fillStyle = col;
+          ctx.font = '700 ' + Math.round(g * 1.5) + 'px ' + CLEF_FONT;
+          ctx.textAlign = 'right';
+          ctx.fillText('\u266F', x - rx * 1.2, y + g * 0.5);
+        }
+
+        // nome da nota (do lado oposto à haste)
+        if (s.noteLabels && n.user && x > xp - g) {
+          const up = d < (d >= 28 ? 34 : 22);
+          ctx.fillStyle = 'rgba(240,242,255,0.9)';
+          ctx.font = '700 ' + Math.round(clamp(g * 0.9, 9, 13)) + 'px Outfit, Inter, system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(noteName(n.midi, style, false), x, up ? y + ry + g * 1.05 : y - ry - g * 0.45);
+        }
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+
+      // Linha de execução
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = this.gAurora;
+      ctx.globalAlpha = 0.95;
+      ctx.fillRect(Math.round(xp) - 1, top - 6, 2, bottom - top + 12);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+
+      // Teclado embaixo (com as dicas de qual tecla tocar)
+      const active = new Map(), hint = new Map();
+      let k = lowerBound(notes, t - this.maxDur - 0.01, 'start');
+      for (; k < notes.length; k++) {
+        const n = notes[k];
+        if (n.start > t) break;
+        if (n.end <= t) continue;
+        if (!n.user) active.set(n.midi, n.hand);
+        else if (!n.hit && !n.missed && this.mode === 'play') hint.set(n.midi, n.hand);
+      }
+      if (this.waiting) this.waiting.forEach(n => hint.set(n.midi, n.hand));
+      const glowKeys = new Map(active);
+      this.keyDown.forEach((v, m) => glowKeys.set(m, v.hand));
+      ctx.fillStyle = '#3a0a1f';
+      ctx.fillRect(0, hitY, W, this.feltH);
+      ctx.fillStyle = this.gAurora;
+      ctx.globalAlpha = 0.9;
+      ctx.fillRect(0, hitY - 1, W, 2);
+      ctx.globalAlpha = 1;
+      this.drawKeyboard(ctx, active, hint, style, s);
+      this.drawParticles(ctx, dt, glowKeys, s);
+      this.drawPopups(ctx, dt);
     }
 
     drawNotes(ctx, t, hitY, pps, style, s) {
