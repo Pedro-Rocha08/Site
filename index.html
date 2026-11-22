@@ -16,7 +16,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=8">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Music&text=%F0%9D%84%9E%F0%9D%84%A2%E2%99%AF&display=block" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=9">
 </head>
 <body>
   <div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
@@ -226,6 +227,9 @@
         <button class="icon-btn" id="btnScore" type="button" title="Ver partitura" aria-label="Ver partitura" hidden>
           <svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h7"/></svg>
         </button>
+        <button class="icon-btn" id="btnView" type="button" title="Mostrar notas caindo" aria-label="Mostrar notas caindo">
+          <svg viewBox="0 0 24 24"><path d="M3 6h18M3 10h18M3 14h18M3 18h18"/><ellipse cx="9" cy="16" rx="2.3" ry="1.7" fill="currentColor" stroke="none"/><path d="M11.2 16V7"/></svg>
+        </button>
         <button class="icon-btn" id="btnPlayerSettings" type="button" title="Configurações" aria-label="Configurações">
           <svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
         </button>
@@ -281,6 +285,12 @@
         <button data-hand="left" type="button"><i class="hdot l"></i>Esquerda</button>
         <button data-hand="both" type="button">Ambas</button>
         <button data-hand="right" type="button">Direita<i class="hdot r"></i></button>
+      </div>
+
+      <h3>Visual</h3>
+      <div class="seg wide" id="setupView">
+        <button data-view="staff" type="button">Partitura (pauta)</button>
+        <button data-view="falling" type="button">Notas caindo</button>
       </div>
 
       <details class="parts" id="partsBox">
@@ -409,13 +419,13 @@
       t.appendChild(d); setTimeout(function () { d.remove(); }, 8000);
     });
   </script>
-  <script src="js/midi-parser.js?v=8"></script>
-  <script src="js/synth.js?v=8"></script>
-  <script src="js/songs.js?v=8"></script>
-  <script src="js/storage.js?v=8"></script>
-  <script src="js/player.js?v=8"></script>
-  <script src="js/ambient.js?v=8"></script>
-  <script src="js/sheets.js?v=8"></script>
-  <script src="js/app.js?v=8"></script>
+  <script src="js/midi-parser.js?v=9"></script>
+  <script src="js/synth.js?v=9"></script>
+  <script src="js/songs.js?v=9"></script>
+  <script src="js/storage.js?v=9"></script>
+  <script src="js/player.js?v=9"></script>
+  <script src="js/ambient.js?v=9"></script>
+  <script src="js/sheets.js?v=9"></script>
+  <script src="js/app.js?v=9"></script>
 </body>
 </html>
