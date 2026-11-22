@@ -296,7 +296,13 @@
     const del = e.target.closest('[data-del]');
     if (del) {
       const s = songs.find(x => x.id === del.dataset.del);
-      if (s && confirm('Remover "' + s.title + '" da sua biblioteca?')) {
+      if (s && !del.classList.contains('confirm')) {
+        del.classList.add('confirm');
+        toast('Clique na lixeira de novo para remover “' + s.title + '”');
+        setTimeout(() => del.classList.remove('confirm'), 3000);
+        return;
+      }
+      if (s) {
         await Store.deleteSong(s.id);
         songs.splice(songs.indexOf(s), 1);
         renderLibrary();

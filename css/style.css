@@ -420,3 +420,4 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border: 0; bord
 @media (prefers-reduced-motion: reduce) {
   .aurora i, .start-icon, .midi-chip.ok .dot { animation: none; }
 }
+.card .del.confirm { opacity: 1; background: rgba(239, 68, 68, .9); }
